@@ -35,8 +35,10 @@ const COLORS = ['#9bd6a5','#6cae7a','#4e8960','#c4a46a','#839b91','#71877d','#b4
 const KEY = 'monetra-v1'
 
 const money = (n: number) => new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', maximumFractionDigits:0 }).format(Math.round(n || 0))
-const digitsOnly = (value: string) => value.replace(/\\D/g, '')
+const digitsOnly = (value: string) => value.replace(/\D/g, '')
 const formatDigits = (value: string) => { const digits = digitsOnly(value); return digits ? new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Number(digits)) : '' }
+const MAX_FINANCIAL_INPUT = 1_000_000_000
+const limitedDigits = (value: string) => { const digits = digitsOnly(value).replace(/^0+(?=\d)/, ''); return digits ? String(Math.min(Number(digits), MAX_FINANCIAL_INPUT)) : '' }
 const shortMoney = (n: number) => n >= 1_000_000 ? `Rp${(n/1_000_000).toFixed(1).replace('.',',')}jt` : n >= 1000 ? `Rp${Math.round(n/1000)}rb` : money(n)
 const dateISO = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 const monthKey = (date: string) => date.slice(0,7)
@@ -134,7 +136,7 @@ export default function App() {
   const highestCategory=categoryData[0]
   const budgetFor=(category:string)=>budgets.find(b=>b.category===category)?.limit||0
 
-  const saveBudget = (category:string,limit:number) => setStore((s:any)=>({...s,budgets:[...s.budgets.filter((b:Budget)=>b.category!==category),{category,limit}]}))
+  const saveBudget = (category:string,limit:number) => setStore((s:any)=>({...s,budgets:[...s.budgets.filter((b:Budget)=>b.category!==category),...(limit>0?[{category,limit:Math.min(limit,MAX_FINANCIAL_INPUT)}]:[])]}))
   const saveGoal = (goal:Goal) => setStore((s:any)=>({...s,goals:s.goals.some((g:Goal)=>g.id===goal.id)?s.goals.map((g:Goal)=>g.id===goal.id?goal:g):[...s.goals,goal]}))
   const deleteGoal = (id:string) => setStore((s:any)=>({...s,goals:s.goals.filter((g:Goal)=>g.id!==id)}))
   const exportCSV = () => {
@@ -218,7 +220,7 @@ function MonthControl({month,setMonth}:{month:string,setMonth:(v:string)=>void})
 function Metric({label,value,sub,icon:Icon,tone='neutral',trend}:{label:string,value:string,sub:string,icon:any,tone?:string,trend?:string}) {
   const [open,setOpen]=useState(false)
   return <>
-    <button type="button" className="metric-card metric-card-button" onClick={()=>setOpen(true)} aria-label={`Open details for ${label}`}>
+    <button type="button" className={`metric-card metric-card-button tone-${tone}`} onClick={()=>setOpen(true)} aria-label={`Open details for ${label}`}>
       <span className="metric-top"><span>{label}</span><span className={`metric-icon ${tone}`}><Icon size={17}/></span></span>
       <span className="metric-value">{value}</span>
       <span className="metric-foot"><span>{sub}</span>{trend&&<span className="metric-trend">{trend}</span>}</span>
@@ -291,9 +293,14 @@ function BudgetPage({budgets,transactions,onSave,month,setMonth}:any) {
   const categories=EXPENSE_CATEGORIES
   const total=budgets.reduce((a: number,b:Budget)=>a+b.limit,0), spent=transactions.filter((t:Transaction)=>t.type==='expense').reduce((a:number,t:Transaction)=>a+t.amount,0)
   const status=(pct:number)=>pct>=100?['Budget exceeded','over']:pct>=90?['Near budget limit','danger']:pct>=70?['Approaching spending limit','warn']:['Budget under control','good']
+  const updateLimit=(category:string,raw:string)=>{
+    const next=limitedDigits(raw)
+    setDraft(s=>({...s,[category]:next}))
+    onSave(category,next===''?0:Number(next))
+  }
   return <div className="page-stack"><PageHeading eyebrow="PLAN WITH INTENTION" title="Monthly budget" description="Give every category a thoughtful limit, then keep an eye on the pace." action={<MonthControl month={month} setMonth={setMonth}/>}/>
     <div className="budget-overview page-enter"><div><span className="panel-kicker">TOTAL ALLOCATION</span><strong>{money(total)}</strong><small>Across {budgets.length} budget categories</small></div><div><span className="panel-kicker">SPENT SO FAR</span><strong>{money(spent)}</strong><small>{total?`${(spent/total*100).toFixed(1)}% of allocated budget`: 'No budget limits yet'}</small></div><div><span className="panel-kicker">REMAINING</span><strong>{money(total-spent)}</strong><small>{total?'Allocation minus recorded expenses':'Set limits to calculate'}</small></div></div>
-    <div className="budget-list">{categories.map((c,i)=>{const limit=budgets.find((b:Budget)=>b.category===c)?.limit||0,actual=expenseBy(c),pct=limit?actual/limit*100:0,[label,cls]=status(pct);return <section className="panel budget-category page-enter" key={c}><div className="budget-category-head"><div className="category-number">{String(i+1).padStart(2,'0')}</div><div className="budget-category-name"><strong>{c}</strong><span>{limit?label:'No limit set'}</span></div><div className="budget-category-values"><strong>{money(actual)}</strong><span>{limit?`of ${money(limit)}`:'spent'}</span></div></div><div className="progress-track budget-progress"><span className={cls} style={{width:`${limit?Math.min(pct,100):0}%`}}/></div><div className="budget-category-bottom"><span>{limit?`${pct.toFixed(0)}% utilized · ${money(Math.max(0,limit-actual))} remaining`: 'Set a monthly spending limit'}</span><div className="budget-edit"><label htmlFor={`budget-${i}`}>Monthly limit</label><div className="inline-money"><span>Rp</span><input id={`budget-${i}`} inputMode="numeric" placeholder="0" value={formatDigits(draft[c]??(limit?String(limit):''))} onChange={e=>setDraft(s=>({...s,[c]:digitsOnly(e.target.value)}))}/><button onClick={()=>{onSave(c,Number(draft[c]??limit));setDraft(s=>({...s,[c]:String(Number(draft[c]??limit))}))}}>Save</button></div></div></div></section>})}</div>
+    <div className="budget-list">{categories.map((c,i)=>{const limit=budgets.find((b:Budget)=>b.category===c)?.limit||0,actual=expenseBy(c),pct=limit?actual/limit*100:0,[label,cls]=status(pct);return <section className="panel budget-category page-enter" key={c}><div className="budget-category-head"><div className="category-number">{String(i+1).padStart(2,'0')}</div><div className="budget-category-name"><strong>{c}</strong><span>{limit?label:'No limit set'}</span></div><div className="budget-category-values"><strong>{money(actual)}</strong><span>{limit?`of ${money(limit)}`:'spent'}</span></div></div><div className="progress-track budget-progress"><span className={cls} style={{width:`${limit?Math.min(pct,100):0}%`}}/></div><div className="budget-category-bottom"><span>{limit?`${pct.toFixed(0)}% utilized · ${money(Math.max(0,limit-actual))} remaining`: 'Set a monthly spending limit'}</span><div className="budget-edit"><label htmlFor={`budget-${i}`}>Monthly limit</label><div className="inline-money"><span>Rp</span><input id={`budget-${i}`} type="text" inputMode="numeric" maxLength={13} placeholder="0" value={formatDigits(draft[c]??(limit?String(limit):''))} onChange={e=>updateLimit(c,e.target.value)} aria-label={`${c} monthly spending limit, auto-saved up to one billion rupiah`}/><span className="autosave-indicator">Auto-saved</span></div></div></div></section>})}</div>
   </div>
 }
 function AnalyticsPage({categoryData,monthlyData,month,setMonth,transactions}:any) {
@@ -322,11 +329,32 @@ function CalendarPage({month,setMonth,transactions,selectedDate,setSelectedDate}
 }
 function GoalsPage({goals,onSave,onDelete}:any) {
   const [form,setForm]=useState(false),[edit,setEdit]=useState<Goal|null>(null),[name,setName]=useState(''),[target,setTarget]=useState(''),[saved,setSaved]=useState(''),[date,setDate]=useState('')
-  const begin=(g?:Goal)=>{setEdit(g||null);setName(g?.name||'');setTarget(g?String(g.target):'');setSaved(g?String(g.saved):'');setDate(g?.date||'');setForm(true)}
-  const submit=(e:FormEvent)=>{e.preventDefault();if(!name.trim()||Number(target)<=0)return;onSave({id:edit?.id||uid(),name:name.trim(),target:Number(digitsOnly(target)),saved:Number(digitsOnly(saved))||0,date});setForm(false)}
+  const goalId=useRef<string>(uid())
+  const onSaveRef=useRef(onSave)
+  onSaveRef.current=onSave
+  const [autoSaved,setAutoSaved]=useState(false)
+  const begin=(g?:Goal)=>{setEdit(g||null);goalId.current=g?.id||uid();setName(g?.name||'');setTarget(g?String(g.target):'');setSaved(g?String(g.saved):'');setDate(g?.date||'');setAutoSaved(false);setForm(true)}
+  useEffect(()=>{
+    if(!form||!name.trim()||Number(target)<=0)return
+    const targetValue=Math.min(Number(limitedDigits(target)),MAX_FINANCIAL_INPUT)
+    const savedValue=Math.min(Number(limitedDigits(saved)||0),MAX_FINANCIAL_INPUT)
+    if(!targetValue)return
+    const timer=window.setTimeout(()=>{
+      onSaveRef.current({id:goalId.current,name:name.trim(),target:targetValue,saved:savedValue,date})
+      setAutoSaved(true)
+    },500)
+    return ()=>window.clearTimeout(timer)
+  },[form,name,target,saved,date])
+  const persistCurrent=()=>{
+    if(!name.trim()||Number(target)<=0)return
+    const targetValue=Math.min(Number(limitedDigits(target)),MAX_FINANCIAL_INPUT)
+    const savedValue=Math.min(Number(limitedDigits(saved)||0),MAX_FINANCIAL_INPUT)
+    if(targetValue)onSaveRef.current({id:goalId.current,name:name.trim(),target:targetValue,saved:savedValue,date})
+  }
+  const close=()=>{persistCurrent();setForm(false);setEdit(null)}
   return <div className="page-stack"><PageHeading eyebrow="A FUTURE WITH DIRECTION" title="Savings goals" description="Make room for the things that matter. Track your progress one contribution at a time." action={<button className="primary-button" onClick={()=>begin()}><Plus size={16}/> Create a goal <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
-    {goals.length?<div className="goal-grid">{goals.map((g:Goal,i:number)=>{const pct=Math.min(g.target?g.saved/g.target*100:0,100);return <section className="panel goal-card page-enter" key={g.id}><div className="goal-card-top"><div className="goal-icon"><Target size={18}/></div><button className="icon-button subtle" onClick={()=>begin(g)} aria-label="Edit goal"><Pencil size={15}/></button></div><span className="panel-kicker">SAVINGS GOAL</span><h2>{g.name}</h2><div className="goal-amount"><strong>{money(g.saved)}</strong><span>of {money(g.target)}</span></div><div className="progress-track large"><span style={{width:`${pct}%`}}/></div><div className="goal-progress-meta"><strong>{pct.toFixed(1)}% complete</strong><span>{g.date?`Target ${new Date(`${g.date}T12:00:00`).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})}`:'No target date'}</span></div><div className="goal-card-foot"><span>{money(Math.max(0,g.target-g.saved))} to go</span><button onClick={()=>onDelete(g.id)} aria-label="Delete goal"><Trash2 size={14}/></button></div></section>})}</div>:<div className="panel goal-empty page-enter"><div className="goal-empty-art"><div/><Target size={28}/></div><h2>Give your savings a destination.</h2><p>Whether it's a safety net or something you've been looking forward to, every goal starts with a number.</p><button className="primary-button" onClick={()=>begin()}><Plus size={16}/> Create your first goal</button></div>}
-    {form&&<div className="modal-backdrop"><form className="modal goal-modal" onSubmit={submit}><div className="modal-head"><div><span className="panel-kicker">YOUR NEXT MILESTONE</span><h2>{edit?'Edit savings goal':'Create a savings goal'}</h2></div><button type="button" className="icon-button" onClick={()=>setForm(false)}><X size={18}/></button></div><label>Goal name<input required value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Emergency fund"/></label><div className="form-row"><label>Target amount (IDR)<input required type="text" inputMode="numeric" value={formatDigits(target)} onChange={e=>setTarget(digitsOnly(e.target.value))} placeholder="10.000.000"/></label><label>Already saved<input type="text" inputMode="numeric" value={formatDigits(saved)} onChange={e=>setSaved(digitsOnly(e.target.value))} placeholder="0"/></label></div><label>Target date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setForm(false)}>Cancel</button><button className="primary-button" type="submit">Save goal <ArrowUpRight size={15}/></button></div></form></div>}
+    {goals.length?<div className="goal-grid">{goals.map((g:Goal)=>{const pct=Math.min(g.target?g.saved/g.target*100:0,100);return <section className="panel goal-card page-enter" key={g.id}><div className="goal-card-top"><div className="goal-icon"><Target size={18}/></div><button className="icon-button subtle" onClick={()=>begin(g)} aria-label="Edit goal"><Pencil size={15}/></button></div><span className="panel-kicker">SAVINGS GOAL</span><h2>{g.name}</h2><div className="goal-amount"><strong>{money(g.saved)}</strong><span>of {money(g.target)}</span></div><div className="progress-track large"><span style={{width:`${pct}%`}}/></div><div className="goal-progress-meta"><strong>{pct.toFixed(1)}% complete</strong><span>{g.date?`Target ${new Date(`${g.date}T12:00:00`).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})}`:'No target date'}</span></div><div className="goal-card-foot"><span>{money(Math.max(0,g.target-g.saved))} to go</span><button onClick={()=>onDelete(g.id)} aria-label="Delete goal"><Trash2 size={14}/></button></div></section>})}</div>:<div className="panel goal-empty page-enter"><div className="goal-empty-art"><div/><Target size={28}/></div><h2>Give your savings a destination.</h2><p>Whether it's a safety net or something you've been looking forward to, every goal starts with a number.</p><button className="primary-button" onClick={()=>begin()}><Plus size={16}/> Create your first goal</button></div>}
+    {form&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><form className="modal goal-modal" onSubmit={e=>{e.preventDefault();close()}}><div className="modal-head"><div><span className="panel-kicker">YOUR NEXT MILESTONE</span><h2>{edit?'Edit savings goal':'Create a savings goal'}</h2></div><button type="button" className="icon-button" onClick={close}><X size={18}/></button></div><label>Goal name<input required value={name} onChange={e=>{setName(e.target.value);setAutoSaved(false)}} placeholder="e.g. Emergency fund"/></label><div className="form-row"><label>Target amount (IDR)<input required type="text" inputMode="numeric" maxLength={13} value={formatDigits(target)} onChange={e=>{setTarget(limitedDigits(e.target.value));setAutoSaved(false)}} placeholder="10.000.000"/></label><label>Already saved<input type="text" inputMode="numeric" maxLength={13} value={formatDigits(saved)} onChange={e=>{setSaved(limitedDigits(e.target.value));setAutoSaved(false)}} placeholder="0"/></label></div><label>Target date<input type="date" value={date} onChange={e=>{setDate(e.target.value);setAutoSaved(false)}}/></label><div className="modal-actions"><span className="autosave-status">{autoSaved?'✓ Automatically saved':'Changes save automatically'}</span><button type="submit" className="primary-button">Done <Check size={15}/></button></div></form></div>}
   </div>
 }
 function ReportsPage(p:any) {
