@@ -19,22 +19,27 @@
 @media(max-width:360px){.page-content{padding-left:11px;padding-right:11px}.metric-card{padding:11px 9px}.metric-value{font-size:15px}.metric-foot{font-size:7px}.top-actions{gap:4px}.calendar-day{height:55px}.calendar-day small{display:none}.report-cover-top>span{letter-spacing:.7px}.report-cover-bottom{font-size:7px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.page-enter,.metric-card{opacity:1!important;transform:none!important}}
 
-/* MONETRA refinement: consistent emerald focus and visible custom scrollbars */
-:root{scrollbar-color:#527e5b #151a15;scrollbar-width:thin}
-*{scrollbar-width:thin;scrollbar-color:#527e5b #151a15}
-*::-webkit-scrollbar{width:10px;height:10px}
-*::-webkit-scrollbar-track{background:#151a15;border-radius:10px}
-*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#9bd6a5,#527e5b);border:2px solid #151a15;border-radius:10px}
-*::-webkit-scrollbar-thumb:hover{background:#b4e5bb}
-*::-webkit-scrollbar-corner{background:#151a15}
-.amount-input{width:100%;min-height:46px;border:1px solid #ffffff20;border-radius:7px;padding:0 12px;gap:10px;transition:border-color .2s,box-shadow .2s}
-.amount-input:focus-within{border-color:var(--green);box-shadow:0 0 0 2px #9bd6a533}
-.amount-input input{width:100%;min-width:0;height:44px;padding:0 2px;outline:0!important;box-shadow:none!important;border:0!important;background:transparent!important;font-variant-numeric:tabular-nums;letter-spacing:.2px}
-.amount-input input:focus-visible{outline:0!important;outline-offset:0!important}
-.analytics-category-list{gap:0;margin-top:14px;border-top:1px solid #ffffff10}
-.analytics-category-list .analytics-category-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(112px,auto) 48px;align-items:center;column-gap:12px;min-height:39px;padding:7px 2px;border-bottom:1px solid #ffffff0b;font-size:10px;font-variant-numeric:tabular-nums}
-.analytics-category-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aeb8aa;display:flex;align-items:center;gap:9px}
-.analytics-category-list .analytics-category-name i{width:9px;height:9px;flex:none;border-radius:3px;box-shadow:0 0 0 3px #ffffff08}
-.analytics-category-list .analytics-category-row strong{font-size:10px;font-weight:500;color:#dce4d8;text-align:right;white-space:nowrap}
-.analytics-category-list .analytics-category-row em{font-size:9px;color:#899486;text-align:right;font-style:normal;white-space:nowrap}
-@media(max-width:480px){.analytics-category-list .analytics-category-row{grid-template-columns:minmax(0,1fr) minmax(90px,auto) 42px;column-gap:7px;font-size:9px}.analytics-category-list .analytics-category-row strong{font-size:9px}}
+/* MONETRA refinement: consistent Indonesian amount fields and emerald browser chrome */
+html{scrollbar-width:thin;scrollbar-color:#6cae7a #111511}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-track{background:#111511}
+*::-webkit-scrollbar-thumb{background:#527e5b;border:2px solid #111511;border-radius:20px}
+*::-webkit-scrollbar-thumb:hover{background:#83bd8e}
+.metric-card-button{width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer;transition:border-color .2s ease,transform .2s ease,background .2s ease}
+.metric-card-button:hover{border-color:#9bd6a54d;transform:translateY(-2px);background:linear-gradient(145deg,#1d241e,#171a17)}
+.metric-card-button:focus-visible{outline:2px solid #83bd8e;outline-offset:3px}
+.metric-icon.blue{background:#83b7d51f;color:#8fc4e4}
+.metric-detail-backdrop{z-index:95}
+.metric-detail-modal{max-width:360px;gap:12px}
+.metric-detail-icon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:#9bd6a51a;color:#9bd6a5}
+.metric-detail-icon.blue{background:#83b7d51f;color:#8fc4e4}
+.metric-detail-value{font-size:25px;font-weight:500;letter-spacing:-.6px;font-variant-numeric:tabular-nums}
+.metric-detail-modal p{font-size:11px;line-height:1.6;color:#899487;margin:0}
+.metric-detail-close{align-self:flex-end;margin-top:5px}
+.inline-money{border-color:#ffffff1b;transition:border-color .2s,box-shadow .2s}
+.inline-money:focus-within{border-color:#83bd8e;box-shadow:0 0 0 2px #83bd8e26}
+.inline-money input:focus{outline:0!important;box-shadow:none!important}
+.modal input:focus,.modal select:focus,.modal textarea:focus{outline:0;border-color:#83bd8e;box-shadow:0 0 0 2px #83bd8e26}
+.goal-card .progress-track>span{background:#8fc4e4}
+.goal-icon{background:#83b7d51f;color:#8fc4e4}
+@media(max-width:650px){.metric-detail-modal{width:min(100%,360px)}}
