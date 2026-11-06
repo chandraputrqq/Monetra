@@ -1,0 +1,9 @@
+MONETRA PERSONAL MODE
+
+- Login and sign-up removed. App opens directly.
+- Supabase/cloud sync removed.
+- Transactions, budgets, and goals auto-save to browser Local Storage.
+- JSON backup and restore remain available in Settings.
+- The earlier TS7006 implicit-any issue for Budget map is patched.
+
+IMPORTANT: The existing Vercel deployment remains accessible by URL until you disable/protect it. Do not upload these changes to the public deployment until you have decided how to restrict access. For private use, run locally or enable Vercel deployment protection.
