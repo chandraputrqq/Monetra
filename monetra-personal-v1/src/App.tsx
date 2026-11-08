@@ -463,7 +463,7 @@ function GoalsPage({goals,onSave,onDelete}:any) {
   const totalSavings=goals.reduce((a:number,g:Goal)=>a+Math.max(0,g.saved),0)
   const totalTarget=activeGoals.reduce((a:number,g:Goal)=>a+g.target,0)
   const overallProgress=totalTarget>0?Math.min(100,totalSavings/totalTarget*100):0
-  const allContributions: (GoalContribution & {goalName:string;goalId:string})[]=goals.flatMap((g:Goal)=>(g.contributions||[]).map(c=>({...c,goalName:g.name,goalId:g.id}))).sort((a,b)=>b.date.localeCompare(a.date))
+  const allContributions: (GoalContribution & {goalName:string;goalId:string})[]=goals.flatMap((g:Goal)=>(g.contributions||[]).map(c=>({...c,goalName:g.name,goalId:g.id}))).sort((a: GoalContribution & {goalName:string;goalId:string},b: GoalContribution & {goalName:string;goalId:string})=>b.date.localeCompare(a.date))
   const historyRows=allContributions.filter(c=>(historyFilter==='all'||c.type===historyFilter)&&(historyMonth==='all'||c.date.slice(0,7)===historyMonth))
   const visibleGoals=goals.filter((g:Goal)=>g.name.toLowerCase().includes(search.toLowerCase())&&(filterCategory==='all'||(g.category||'Personal')===filterCategory)&&(filterStatus==='all'||statusOf(g)===filterStatus)).sort((a:Goal,b:Goal)=>sort==='progress'?pctOf(b)-pctOf(a):sort==='amount'?b.target-a.target:sort==='priority'?(['High','Medium','Low'].indexOf(a.priority||'Medium')-['High','Medium','Low'].indexOf(b.priority||'Medium')):((a.date||'9999').localeCompare(b.date||'9999')))
   const begin=(g?:Goal)=>{setEdit(g||null);setName(g?.name||'');setCategory(g?.category||'Personal');setTarget(g?String(g.target):'');setSaved(g?String(g.saved):'');setDate(g?.date||'');setDescription(g?.description||'');setPriority(g?.priority||'Medium');setForm(true)}
@@ -472,13 +472,13 @@ function GoalsPage({goals,onSave,onDelete}:any) {
   const commitContribution=(e:FormEvent)=>{e.preventDefault();if(!activeGoal)return;const amount=Number(limitedDigits(contributionAmount));if(!amount){setContributionError('Enter an amount greater than zero.');return}if(contributionType==='withdrawal'&&amount>activeGoal.saved){setContributionError('Withdrawal cannot exceed the current saved balance.');return}const next=activeGoal.saved+(contributionType==='deposit'?amount:-amount);const entry:GoalContribution={id:uid(),type:contributionType,amount,date:contributionDate,notes:contributionNotes.trim(),balance:next};onSave({...activeGoal,saved:next,completed:next>=activeGoal.target,contributions:[...(activeGoal.contributions||[]),entry]});setActiveGoal(null)}
   const togglePause=(g:Goal)=>onSave({...g,paused:!g.paused})
   const markComplete=(g:Goal)=>onSave({...g,completed:true,paused:false})
-  const remaining=activeGoals.reduce((a,g)=>a+Math.max(0,g.target-g.saved),0)
-  const dailyRequired=activeGoals.reduce((total,g)=>{const days=g.date?Math.max(1,Math.ceil((new Date(`${g.date}T12:00:00`).getTime()-new Date(`${today}T12:00:00`).getTime())/86400000)):30;return total+Math.max(0,g.target-g.saved)/days},0)
+  const remaining=activeGoals.reduce<number>((a: number,g: Goal)=>a+Math.max(0,g.target-g.saved),0)
+  const dailyRequired=activeGoals.reduce<number>((total: number,g: Goal)=>{const days=g.date?Math.max(1,Math.ceil((new Date(`${g.date}T12:00:00`).getTime()-new Date(`${today}T12:00:00`).getTime())/86400000)):30;return total+Math.max(0,g.target-g.saved)/days},0)
   const weeklyRequired=dailyRequired*7
   const monthlyRequired=dailyRequired*30
   const periodRequired=projectionPeriod==='daily'?dailyRequired:projectionPeriod==='weekly'?weeklyRequired:monthlyRequired
   const projectionData=Array.from({length:7},(_,i)=>({period:i===0?'Now':`M${i}`,actual:totalSavings,projected:Math.min(totalTarget,totalSavings+monthlyRequired*i)}))
-  const achievedMilestones=goals.reduce((n,g)=>n+[25,50,75,100].filter(m=>pctOf(g)>=m).length,0)
+  const achievedMilestones=goals.reduce<number>((n: number,g: Goal)=>n+[25,50,75,100].filter(m=>pctOf(g)>=m).length,0)
   const insight=activeGoals.length===0?'Create a savings goal to start building a clear plan.':activeGoals.some(g=>g.date&&g.date<today)?'At least one goal is overdue. Review its target date or contribution plan.':remaining===0?'All active savings targets have been reached.':`You need approximately ${money(monthlyRequired)} per month across active goals to meet their target dates.`
   const achievements=[{name:'First Goal Created',earned:goals.length>0,detail:'Create your first savings target.'},{name:'First Contribution',earned:allContributions.some(c=>c.type==='deposit'),detail:'Record a contribution to any goal.'},{name:'Consistent Saver',earned:new Set(allContributions.filter(c=>c.type==='deposit').map(c=>c.date)).size>=3,detail:'Contribute on three different dates.'},{name:'Halfway Champion',earned:goals.some(g=>pctOf(g)>=50),detail:'Reach at least 50% on a goal.'},{name:'Goal Achieved',earned:goals.some(g=>statusOf(g)==='Completed'),detail:'Complete a savings goal.'}]
   const categoryMark=(c:string)=>({'Emergency Fund':'EF','Education':'ED','Technology':'TE','Travel':'TR','Vehicle':'VE','Investment':'IN','Personal':'PE','Other':'OT'} as Record<string,string>)[c]||'GO'
