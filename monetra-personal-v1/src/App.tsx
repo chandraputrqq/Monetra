@@ -1,3 +1,419 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode, FormEvent, ChangeEvent } from 'react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import {
+  LayoutDashboard, ArrowLeftRight, Wallet, ChartNoAxesCombined, CalendarDays,
+  Target, FileText, Settings, Plus, Search, Bell, ChevronDown, ChevronLeft,
+  ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2,
+  X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal,
+  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, ScanLine, Camera, ImagePlus, LoaderCircle, ReceiptText, ShieldCheck, RefreshCw
+} from 'lucide-react'
+import {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  PieChart, Pie, Cell, BarChart, Bar, Legend
+} from 'recharts'
+
+gsap.registerPlugin(ScrollTrigger)
+
+type TxType = 'income' | 'expense'
+type Transaction = { id: string; name: string; amount: number; type: TxType; category: string; date: string; notes?: string }
+type Budget = { category: string; limit: number }
+type GoalContribution = { id:string; type:'deposit'|'withdrawal'; amount:number; date:string; notes:string; balance:number }
+type Goal = { id:string; name:string; target:number; saved:number; date:string; category?:string; description?:string; priority?:'Low'|'Medium'|'High'; paused?:boolean; completed?:boolean; contributions?:GoalContribution[] }
+type Page = 'Dashboard' | 'Smart Scanner' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Monthly Reports' | 'Settings'
+
+const EXPENSE_CATEGORIES = ['Food & Beverages','Transportation','Shopping','Entertainment','Education','Bills & Utilities','Health','Housing','Subscriptions','Other']
+const INCOME_CATEGORIES = ['Salary','Business','Freelance','Investment Returns','Other Income']
+const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
+  { label:'Dashboard', icon:LayoutDashboard }, { label:'Smart Scanner', icon:ScanLine }, { label:'Transactions', icon:ArrowLeftRight },
+  { label:'Monthly Budget', icon:Wallet }, { label:'Analytics', icon:ChartNoAxesCombined },
+  { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target },
+  { label:'Monthly Reports', icon:FileText }, { label:'Settings', icon:Settings }
+]
+const COLORS = ['#9bd6a5','#6cae7a','#4e8960','#c4a46a','#839b91','#71877d','#b4c6b7','#8d9c73','#9d826c','#718b9a']
+const KEY = 'monetra-v1'
+
+const money = (n: number) => new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', maximumFractionDigits:0 }).format(Math.round(n || 0))
+const digitsOnly = (value: string) => value.replace(/\D/g, '')
+const formatDigits = (value: string) => { const digits = digitsOnly(value); return digits ? new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Number(digits)) : '' }
+const MAX_FINANCIAL_INPUT = 1_000_000_000
+const limitedDigits = (value: string) => { const digits = digitsOnly(value).replace(/^0+(?=\d)/, ''); return digits ? String(Math.min(Number(digits), MAX_FINANCIAL_INPUT)) : '' }
+const shortMoney = (n: number) => n >= 1_000_000 ? `Rp${(n/1_000_000).toFixed(1).replace('.',',')}jt` : n >= 1000 ? `Rp${Math.round(n/1000)}rb` : money(n)
+const dateISO = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const monthKey = (date: string) => date.slice(0,7)
+const currentMonth = dateISO().slice(0,7)
+const monthLabel = (key: string) => new Date(Number(key.slice(0,4)), Number(key.slice(5,7))-1, 1).toLocaleDateString('en-US',{month:'long',year:'numeric'})
+const uid = () => Math.random().toString(36).slice(2,10)
+const readStore = () => {
+  try { const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null } catch { return null }
+}
+const initialData = () => {
+  const stored = readStore()
+  if (stored) return stored
+  return { transactions: [], budgets: [], goals: [], currency:'IDR', demo:false }
+}
+const monthShift = (key: string, offset: number) => {
+  const d = new Date(Number(key.slice(0,4)), Number(key.slice(5,7))-1+offset, 1)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+}
+const sum = (items: Transaction[], type: TxType) => items.filter(t=>t.type===type).reduce((a,t)=>a+t.amount,0)
+const download = (name: string, content: string, type: string) => {
+  const blob = new Blob([content],{type}); const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url)
+}
+
+export default function App() {
+  const [store,setStore] = useState<any>(initialData)
+  const [page,setPage] = useState<Page>('Dashboard')
+  const [month,setMonth] = useState(currentMonth)
+  const [modal,setModal] = useState(false)
+  const [editing,setEditing] = useState<Transaction|null>(null)
+  const [query,setQuery] = useState('')
+  const [filterType,setFilterType] = useState('all')
+  const [filterCategory,setFilterCategory] = useState('all')
+  const [filterMonth,setFilterMonth] = useState(currentMonth)
+  const [selectedDate,setSelectedDate] = useState(dateISO())
+  const [mobileNav,setMobileNav] = useState(false)
+  const [confirmClear,setConfirmClear] = useState(false)
+  const [toast,setToast] = useState('')
+  const mainRef = useRef<HTMLDivElement>(null)
+
+  const transactions: Transaction[] = store.transactions || []
+  const budgets: Budget[] = store.budgets || []
+  const goals: Goal[] = store.goals || []
+
+  // Personal mode: persist all records in this browser only. No account or cloud connection.
+  useEffect(()=>{
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(store))
+    } catch (error) {
+      console.error('MONETRA local save failed', error)
+      notify('Browser storage is unavailable. Export a backup before leaving this page.')
+    }
+  },[store])
+  useGSAP(()=> {
+    gsap.fromTo('.page-enter',{y:18,opacity:0},{y:0,opacity:1,duration:.65,ease:'power3.out',stagger:.07,clearProps:'all'})
+    gsap.fromTo('.metric-card',{y:22,opacity:0},{y:0,opacity:1,duration:.7,ease:'power3.out',stagger:.09,delay:.08,clearProps:'all'})
+    gsap.utils.toArray<HTMLElement>('.panel').forEach((panel)=>gsap.fromTo(panel,{y:14,opacity:0},{y:0,opacity:1,duration:.65,ease:'power2.out',clearProps:'all',scrollTrigger:{trigger:panel,start:'top 94%',toggleActions:'play none none none'}}))
+  },{scope:mainRef,dependencies:[page]})
+
+  const notify = (message: string) => { setToast(message); window.setTimeout(()=>setToast(''),2600) }
+  const monthTx = useMemo(()=>transactions.filter(t=>monthKey(t.date)===month),[transactions,month])
+  const income = sum(monthTx,'income'), expenses = sum(monthTx,'expense'), balance = income-expenses
+  const savingsRate = income>0 ? Math.max(0,(balance/income)*100) : 0
+  const allocated = budgets.reduce((a,b)=>a+b.limit,0)
+  const budgetUsed = expenses
+  const utilization = allocated>0 ? budgetUsed/allocated*100 : 0
+
+  const addOrUpdate = (tx: Transaction) => {
+    setStore((s:any)=>({...s,transactions: editing ? s.transactions.map((t:Transaction)=>t.id===tx.id?tx:t) : [tx,...s.transactions]}))
+    setEditing(null); setModal(false); notify(editing?'Transaction updated':'Transaction saved')
+  }
+  const removeTx = (id: string) => {
+    if (!window.confirm('Delete this transaction? This cannot be undone.')) return
+    setStore((s:any)=>({...s,transactions:s.transactions.filter((t:Transaction)=>t.id!==id)})); notify('Transaction deleted')
+  }
+  const openEdit = (tx: Transaction) => { setEditing(tx); setModal(true) }
+  const openAdd = () => { setEditing(null); setModal(true) }
+  const filtered = useMemo(()=>transactions.filter(t=>
+    (filterMonth==='all'||monthKey(t.date)===filterMonth) &&
+    (filterType==='all'||t.type===filterType) &&
+    (filterCategory==='all'||t.category===filterCategory) &&
+    `${t.name} ${t.category} ${t.notes||''}`.toLowerCase().includes(query.toLowerCase())
+  ).sort((a,b)=>b.date.localeCompare(a.date)),[transactions,filterMonth,filterType,filterCategory,query])
+
+  const categoryData = useMemo(()=>EXPENSE_CATEGORIES.map((name,i)=>({
+    name, value:monthTx.filter(t=>t.type==='expense'&&t.category===name).reduce((a,t)=>a+t.amount,0), color:COLORS[i]
+  })).filter(x=>x.value>0).sort((a,b)=>b.value-a.value),[monthTx])
+  const monthlyData = useMemo(()=>Array.from({length:6},(_,i)=>{
+    const key=monthShift(month,-5+i), list=transactions.filter(t=>monthKey(t.date)===key)
+    return {month:new Date(Number(key.slice(0,4)),Number(key.slice(5,7))-1,1).toLocaleDateString('en-US',{month:'short'}), income:sum(list,'income'), expenses:sum(list,'expense'), savings:sum(list,'income')-sum(list,'expense')}
+  }),[transactions,month])
+  const previousTx = transactions.filter(t=>monthKey(t.date)===monthShift(month,-1))
+  const previousExpense=sum(previousTx,'expense')
+  const expenseChange=previousExpense>0?((expenses-previousExpense)/previousExpense)*100:null
+  const highestCategory=categoryData[0]
+  const budgetFor=(category:string)=>budgets.find(b=>b.category===category)?.limit||0
+
+  const saveBudget = (category:string,limit:number) => setStore((s:any)=>({...s,budgets:[...s.budgets.filter((b:Budget)=>b.category!==category),...(limit>0?[{category,limit:Math.min(limit,MAX_FINANCIAL_INPUT)}]:[])]}))
+  const saveGoal = (goal:Goal) => setStore((s:any)=>({...s,goals:s.goals.some((g:Goal)=>g.id===goal.id)?s.goals.map((g:Goal)=>g.id===goal.id?goal:g):[...s.goals,goal]}))
+  const deleteGoal = (id:string) => setStore((s:any)=>({...s,goals:s.goals.filter((g:Goal)=>g.id!==id)}))
+  const exportCSV = () => {
+    const rows=[['Date','Name','Type','Category','Amount','Notes'],...filtered.map(t=>[t.date,t.name,t.type,t.category,String(t.amount),t.notes||''])]
+    download(`monetra-transactions-${filterMonth}.csv`,rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv;charset=utf-8')
+  }
+  const exportReport = () => {
+    const rows=[['MONETRA MONTHLY REPORT',monthLabel(month)],['Income',String(income)],['Expenses',String(expenses)],['Net cash flow',String(balance)],['Savings rate',`${savingsRate.toFixed(1)}%`],['Category','Amount'],...categoryData.map(c=>[c.name,String(c.value)])]
+    download(`monetra-report-${month}.csv`,rows.map(r=>r.join(',')).join('\n'),'text/csv;charset=utf-8')
+  }
+  const exportPDF = async () => {
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF()
+    doc.setFillColor(16,18,16); doc.rect(0,0,210,297,'F')
+    doc.setTextColor(235,239,231); doc.setFontSize(24); doc.text('MONETRA',18,24)
+    doc.setFontSize(11); doc.setTextColor(155,214,165); doc.text(monthLabel(month),18,34)
+    doc.setTextColor(235,239,231); doc.setFontSize(12)
+    ;[['Total income',money(income)],['Total expenses',money(expenses)],['Net cash flow',money(balance)],['Savings rate',`${savingsRate.toFixed(1)}%`]].forEach((r,i)=>{doc.text(r[0],18,56+i*13);doc.text(r[1],190,56+i*13,{align:'right'})})
+    doc.setFontSize(14); doc.text('Expense breakdown',18,125)
+    doc.setFontSize(10); categoryData.forEach((c,i)=>doc.text(`${c.name} — ${money(c.value)}`,18,138+i*9))
+    doc.save(`monetra-report-${month}.pdf`)
+  }
+  const loadDemo = () => {
+    if (transactions.length && !window.confirm('Demo data will be added alongside your existing records. Continue?')) return
+    const y=Number(month.slice(0,4)),m=Number(month.slice(5,7))-1
+    const demo:Transaction[]=[
+      ['Monthly salary',6500000,'income','Salary',3],['Freelance project',1250000,'income','Freelance',8],
+      ['Groceries & meals',780000,'expense','Food & Beverages',4],['Ride-hailing',245000,'expense','Transportation',6],
+      ['Internet & electricity',420000,'expense','Bills & Utilities',9],['Books and course',325000,'expense','Education',12],
+      ['Coffee with friends',165000,'expense','Food & Beverages',15],['Household items',390000,'expense','Shopping',18],
+      ['Streaming subscription',89000,'expense','Subscriptions',20],['Health check',210000,'expense','Health',22]
+    ].map((x:any)=>({id:uid(),name:x[0],amount:x[1],type:x[2],category:x[3],date:`${y}-${String(m+1).padStart(2,'0')}-${String(x[4]).padStart(2,'0')}`,notes:'Demo data'}))
+    setStore((s:any)=>({...s,transactions:[...demo,...s.transactions],demo:true})); notify('Demo transactions added')
+  }
+
+  const renderPage = () => {
+    switch(page) {
+      case 'Dashboard': return <Dashboard month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} totalSaved={goals.reduce((a:number,g:Goal)=>a+g.saved,0)} utilization={utilization} allocated={allocated} categoryData={categoryData} monthlyData={monthlyData} transactions={monthTx} highestCategory={highestCategory} expenseChange={expenseChange} budgets={budgets} onAdd={openAdd} onNavigate={setPage} onEdit={openEdit} />
+      case 'Smart Scanner': return <SmartScanner transactions={transactions} onSave={(tx:Transaction)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify('Scanned transaction saved to MONETRA')}} notify={notify} />
+      case 'Transactions': return <TransactionsPage rows={filtered} query={query} setQuery={setQuery} filterType={filterType} setFilterType={setFilterType} filterCategory={filterCategory} setFilterCategory={setFilterCategory} filterMonth={filterMonth} setFilterMonth={setFilterMonth} onAdd={openAdd} onEdit={openEdit} onDelete={removeTx} onCSV={exportCSV} />
+      case 'Monthly Budget': return <BudgetPage budgets={budgets} transactions={monthTx} onSave={saveBudget} month={month} setMonth={setMonth} />
+      case 'Analytics': return <AnalyticsPage categoryData={categoryData} monthlyData={monthlyData} month={month} setMonth={setMonth} transactions={transactions} />
+      case 'Financial Calendar': return <CalendarPage month={month} setMonth={setMonth} transactions={transactions} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
+      case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
+      case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} transactions={monthTx} />
+      case 'Settings': return <SettingsPage store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
+    }
+  }
+
+  return <div className="app-shell">
+    <aside className={`sidebar ${mobileNav?'sidebar-open':''}`}>
+      <div className="brand"><div className="brand-mark"><span /></div><span>monetra</span><small>STUDENT FINANCE</small></div>
+      <div className="workspace-label">WORKSPACE</div>
+      <nav>{NAV.map(({label,icon:Icon})=><button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}}><Icon size={17}/><span>{label}</span>{page===label&&<i/>}</button>)}</nav>
+      <div className="sidebar-bottom">
+        <div className="help-card"><div className="help-icon"><CircleHelp size={16}/></div><strong>Need a hand?</strong><p>Your money, made clearer. Explore the guide in Settings.</p><button onClick={()=>setPage('Settings')}>Explore guide <ArrowUpRight size={13}/></button></div>
+        <div className="profile"><div className="avatar">M</div><div><strong>My workspace</strong><span>Personal account</span></div><MoreHorizontal size={17}/></div>
+      </div>
+    </aside>
+    {mobileNav&&<button className="mobile-scrim" onClick={()=>setMobileNav(false)} aria-label="Close menu"/>}
+    <main className="main-area" ref={mainRef}>
+      <header className="topbar">
+        <button className="mobile-menu icon-button" onClick={()=>setMobileNav(!mobileNav)} aria-label="Toggle navigation"><Menu size={19}/></button>
+        <div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><strong>{page}</strong></div>
+        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button notification" aria-label="Notifications" onClick={()=>notify('You are all caught up')}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Settings')}><span className="avatar small">M</span><ChevronDown size={14}/></button></div>
+      </header>
+      <div className="page-content">{renderPage()}</div>
+      <footer className="app-footer"><span>MONETRA <i>·</i> Know your money. Control your future.</span><span>Private on this browser <b>●</b> Saved on this device</span></footer>
+    </main>
+    {modal&&<TransactionModal initial={editing} onClose={()=>{setModal(false);setEditing(null)}} onSave={addOrUpdate}/>}
+    {confirmClear&&<ConfirmModal title="Clear all financial data?" body="This permanently removes transactions, budgets, and goals stored in this browser. Export your data first if you need a backup." onCancel={()=>setConfirmClear(false)} onConfirm={()=>{setStore({transactions:[],budgets:[],goals:[],currency:'IDR',demo:false});setConfirmClear(false);notify('Local data cleared')}}/>}
+    {toast&&<div className="toast"><Check size={15}/>{toast}</div>}
+  </div>
+}
+
+type ScanDraft = { merchant:string; date:string; amount:string; category:string; type:TxType; payment:string; receiptNo:string; items:string; rawText:string }
+type ScanHistoryItem = { id:string; merchant:string; date:string; amount:number; category:string; status:string; image:string; receiptNo:string }
+
+const guessCategory = (text:string) => {
+  const t=text.toLowerCase()
+  if (/resto|restaurant|cafe|coffee|warung|bakery|food|makan|minum|ayam|bakso|kopi|boba|pizza|mcd|kfc/.test(t)) return 'Food & Beverages'
+  if (/grab|gojek|pertamina|shell|taxi|toll|parkir|parking|fuel|bensin|transport/.test(t)) return 'Transportation'
+  if (/pln|listrik|electric|internet|wifi|water|air\s+bersih|indihome|telkom|pdam/.test(t)) return 'Bills & Utilities'
+  if (/pharmacy|apotek|clinic|klinik|hospital|rumah sakit|health|obat/.test(t)) return 'Health'
+  if (/book|buku|course|kursus|school|sekolah|campus|kuliah/.test(t)) return 'Education'
+  if (/netflix|spotify|subscription|disney\+/.test(t)) return 'Subscriptions'
+  if (/salary|gaji|payroll/.test(t)) return 'Salary'
+  return 'Shopping'
+}
+const parseReceiptDate = (text:string) => {
+  const m=text.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/) || text.match(/\b(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})\b/)
+  if (!m) return dateISO()
+  let y:number,mo:number,d:number
+  if (m[1].length===4) { y=+m[1];mo=+m[2];d=+m[3] } else { d=+m[1];mo=+m[2];y=+m[3];if(y<100)y+=2000 }
+  const dt=new Date(y,mo-1,d)
+  return Number.isNaN(dt.getTime())?dateISO():`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+}
+const parseReceipt = (raw:string):ScanDraft => {
+  const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)
+  const totalLines=lines.filter(x=>/(grand\s*total|total\s*bayar|total|jumlah|tagihan|amount\s*due|balance\s*due|nominal)/i.test(x))
+  const candidates=(totalLines.length?totalLines:lines).flatMap(line=>{
+    const nums=[...line.matchAll(/(?:rp\s*)?([0-9][0-9.,\s]{2,})/gi)]
+    return nums.map(n=>Number(n[1].replace(/[.,\s]/g,''))).filter(n=>Number.isFinite(n)&&n>0&&n<=1_000_000_000)
+  })
+  const amount=candidates.length?Math.max(...candidates):0
+  const merchant=lines.find(x=>/[a-zA-Z]{3}/.test(x)&&!/(receipt|invoice|struk|tanggal|date|cashier|kasir|customer|alamat|telp|phone|www\.)/i.test(x))||'Merchant not detected'
+  const receiptNo=(raw.match(/(?:invoice|receipt|struk|trx|transaction|no\.?)[\s:#-]*([A-Z0-9-]{4,})/i)||[])[1]||''
+  const payment=(raw.match(/\b(QRIS|CASH|TUNAI|DEBIT|CREDIT|KARTU KREDIT|TRANSFER|GOPAY|OVO|DANA|SHOPEEPAY)\b/i)||[])[1]||'Not detected'
+  return {merchant,date:parseReceiptDate(raw),amount:amount?String(amount):'',category:guessCategory(raw+' '+merchant),type:/refund|salary|gaji|transfer masuk|income/i.test(raw)?'income':'expense',payment,receiptNo,items:lines.slice(1,Math.max(2,lines.length-3)).join('\n').slice(0,1200),rawText:raw}
+}
+
+function SmartScanner({transactions,onSave,notify}:{transactions:Transaction[];onSave:(tx:Transaction)=>void;notify:(s:string)=>void}) {
+  const [mode,setMode]=useState<'idle'|'camera'|'review'>('idle')
+  const [file,setFile]=useState<File|null>(null)
+  const [preview,setPreview]=useState('')
+  const [draft,setDraft]=useState<ScanDraft|null>(null)
+  const [busy,setBusy]=useState(false)
+  const [error,setError]=useState('')
+  const [history,setHistory]=useState<ScanHistoryItem[]>(()=>{try{return JSON.parse(localStorage.getItem('monetra-scan-history')||'[]')}catch{return []}})
+  const [duplicateConfirmed,setDuplicateConfirmed]=useState(false)
+  const videoRef=useRef<HTMLVideoElement>(null)
+  const streamRef=useRef<MediaStream|null>(null)
+  const inputRef=useRef<HTMLInputElement>(null)
+  const stopCamera=()=>{streamRef.current?.getTracks().forEach(t=>t.stop());streamRef.current=null}
+  useEffect(()=>()=>stopCamera(),[])
+  useEffect(()=>{try{localStorage.setItem('monetra-scan-history',JSON.stringify(history))}catch{notify('Storage is full. The latest scan history may not be saved.')}},[history])
+  const compressImage=(source:File)=>new Promise<string>((resolve,reject)=>{
+    const url=URL.createObjectURL(source),img=new Image()
+    img.onload=()=>{const scale=Math.min(1,1100/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);const ctx=canvas.getContext('2d');if(!ctx){URL.revokeObjectURL(url);reject(new Error('Canvas is not available'));return}ctx.drawImage(img,0,0,canvas.width,canvas.height);URL.revokeObjectURL(url);resolve(canvas.toDataURL('image/jpeg',.68))}
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('The image could not be read'))};img.src=url
+  })
+  const processImage=async (selected:File)=>{
+    if(!selected.type.startsWith('image/')){setError('Please choose a JPG, PNG, or WEBP image.');return}
+    if(selected.size>12*1024*1024){setError('Maximum image size is 12 MB.');return}
+    setError('');setBusy(true);setFile(selected);setDuplicateConfirmed(false)
+    const localUrl=URL.createObjectURL(selected);setPreview(localUrl)
+    try {
+      const compressed=await compressImage(selected)
+      // Load OCR from a browser ESM CDN so this Vite/Vercel project needs no native server or API key.
+      // @ts-ignore — remote ESM module is resolved by the browser at runtime.
+      const {createWorker}=await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.esm.min.js')
+      const worker=await createWorker('eng')
+      let textResult=''
+      try {const result=await worker.recognize(selected);textResult=result.data.text||''} finally {await worker.terminate()}
+      if(!textResult.trim()) throw new Error('No readable text found. Try a brighter, straighter photo.')
+      setDraft(parseReceipt(textResult));setMode('review')
+      const parsed=parseReceipt(textResult)
+      const record:ScanHistoryItem={id:uid(),merchant:parsed.merchant,date:parsed.date,amount:Number(parsed.amount)||0,category:parsed.category,status:'Awaiting confirmation',image:compressed,receiptNo:parsed.receiptNo}
+      setHistory(h=>[record,...h].slice(0,12))
+      notify('Scan complete. Review the OCR results before saving.')
+    } catch(e:any) {setError(e?.message||'Could not read the image. Please try again or enter the details manually.');setMode('review');setDraft(parseReceipt(''))}
+    finally {setBusy(false)}
+  }
+  const startCamera=async()=>{
+    setError('')
+    if(!navigator.mediaDevices?.getUserMedia){setError('Camera access is unavailable. Open MONETRA over HTTPS or localhost, or upload a receipt image.');return}
+    try {const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});streamRef.current=stream;setMode('camera');requestAnimationFrame(()=>{if(videoRef.current){videoRef.current.srcObject=stream;void videoRef.current.play()}})}
+    catch(e:any){setError(e?.name==='NotAllowedError'?'Camera permission was denied. Enable camera access in your browser settings.':'Could not open the camera. Make sure another app is not using it, or upload a receipt image.')}
+  }
+  const capture=()=>{const video=videoRef.current;if(!video||!video.videoWidth)return;const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d')?.drawImage(video,0,0);canvas.toBlob(blob=>{if(blob){stopCamera();void processImage(new File([blob],`monetra-scan-${Date.now()}.jpg`,{type:'image/jpeg'}))}},'image/jpeg',.9)}
+  const update=(key:keyof ScanDraft,value:string)=>setDraft(d=>d?({...d,[key]:value} as ScanDraft):d)
+  const amount=Number(draft?.amount||0)
+  const duplicate=!!draft&&transactions.some(t=>t.type===draft.type&&t.amount===amount&&t.date===draft.date&&t.name.trim().toLowerCase()===draft.merchant.trim().toLowerCase())
+  const save=()=>{
+    if(!draft||!draft.merchant.trim()||!amount||amount>1_000_000_000){setError('Enter a merchant name and a valid amount (maximum IDR 1,000,000,000).');return}
+    if(duplicate&&!duplicateConfirmed){setError('A similar transaction already exists. Confirm the duplicate warning to save it anyway.');return}
+    const tx:Transaction={id:uid(),name:draft.merchant.trim(),amount,type:draft.type,category:draft.category,date:draft.date,notes:[`Smart Scan · OCR`,draft.payment!=='Not detected'?`Payment: ${draft.payment}`:'',draft.receiptNo?`Receipt no.: ${draft.receiptNo}`:'',draft.items?`Items: ${draft.items}`:''].filter(Boolean).join(' | ')}
+    onSave(tx)
+    setHistory(h=>h.map((r,i)=>i===0?{...r,merchant:tx.name,date:tx.date,amount:tx.amount,category:tx.category,status:'Saved'}:r))
+    setMode('idle');setDraft(null);setFile(null);if(preview)URL.revokeObjectURL(preview);setPreview('');setError('');setDuplicateConfirmed(false)
+  }
+  const reset=()=>{stopCamera();setMode('idle');setDraft(null);setFile(null);if(preview)URL.revokeObjectURL(preview);setPreview('');setError('');setDuplicateConfirmed(false)}
+  const categories=draft?.type==='income'?INCOME_CATEGORIES:EXPENSE_CATEGORIES
+  return <div className="scanner-page page-enter">
+    <PageHeading eyebrow="SMART FINANCE TOOL" title="Smart Auto Scan" description="Turn receipt photos into MONETRA transactions. Review the extracted details before saving." action={<span className="scanner-private"><ShieldCheck size={14}/> Processed on this device</span>}/>
+    {error&&<div className="scanner-alert" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Close message"><X size={14}/></button></div>}
+    {mode==='camera'&&<section className="panel scanner-camera-panel"><div className="scanner-panel-head"><div><span className="panel-kicker">LIVE CAMERA</span><h2>Position the receipt inside the frame</h2></div><button className="icon-button" onClick={reset} aria-label="Close camera"><X size={17}/></button></div><div className="camera-frame"><video ref={videoRef} autoPlay muted playsInline/><div className="camera-guide"/></div><div className="scanner-actions"><button className="secondary-button" onClick={reset}>Cancel</button><button className="primary-button" onClick={capture}><Camera size={15}/> Capture Photo</button></div></section>}
+    {mode==='review'&&draft&&<section className="panel scanner-review"><div className="scanner-panel-head"><div><span className="panel-kicker">REVIEW & CONFIRM</span><h2>Review scanned details</h2><p>OCR may misread numbers or names. Please check that all details are correct.</p></div><button className="icon-button" onClick={reset} aria-label="Close review"><X size={17}/></button></div><div className="review-layout"><div className="receipt-preview">{preview&&<img src={preview} alt="Scanned receipt preview"/>}<span>RECEIPT PREVIEW</span></div><div className="review-fields">
+      <div className="form-row"><label>Merchant name<input value={draft.merchant} onChange={e=>update('merchant',e.target.value)} /></label><label>Transaction date<input type="date" value={draft.date} onChange={e=>update('date',e.target.value)}/></label></div>
+      <label>Transaction type<select value={draft.type} onChange={e=>{update('type',e.target.value);update('category',e.target.value==='income'?'Other Income':'Other')}}><option value="expense">Expense</option><option value="income">Income</option></select></label>
+      <label>Category<select value={draft.category} onChange={e=>update('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
+      <label>Transaction amount (IDR)<input inputMode="numeric" value={formatDigits(draft.amount)} onChange={e=>update('amount',digitsOnly(e.target.value))} placeholder="e.g. 125,000"/></label>
+      <div className="form-row"><label>Payment method<input value={draft.payment} onChange={e=>update('payment',e.target.value)} /></label><label>Receipt / invoice number<input value={draft.receiptNo} onChange={e=>update('receiptNo',e.target.value)} placeholder="Optional"/></label></div>
+      <label>Items / OCR notes<textarea rows={3} value={draft.items} onChange={e=>update('items',e.target.value)} placeholder="Item details (optional)"/></label>
+      {duplicate&&<div className="scanner-duplicate"><AlertTriangle size={16}/><div><strong>Possible duplicate transaction</strong><p>The merchant, date, amount, and transaction type match an existing record.</p><label className="duplicate-check"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/> I have reviewed this and still want to save it.</label></div></div>}
+      <div className="scanner-actions"><button className="secondary-button" onClick={reset}>Cancel</button><button className="secondary-button" onClick={()=>{setMode('idle');setDraft(null);if(preview)URL.revokeObjectURL(preview);setPreview('');inputRef.current?.click()}}><RefreshCw size={14}/> Scan Again</button><button className="primary-button" onClick={save} disabled={!draft.merchant.trim()||!amount}><Check size={15}/> Confirm & Save</button></div>
+    </div></div></section>}
+    {mode==='idle'&&<><section className="scanner-hero panel"><div className="scanner-hero-copy"><span className="panel-kicker">SMART AUTO SCAN TRANSACTION</span><h2>Track transactions without manual entry.</h2><p>Take a receipt photo or upload an image. MONETRA reads the text on your device, suggests a category, and asks for your confirmation before saving.</p><div className="scanner-actions"><button className="primary-button" onClick={()=>void startCamera()}><Camera size={15}/> Scan with Camera</button><button className="secondary-button" onClick={()=>inputRef.current?.click()}><ImagePlus size={15}/> Upload Image</button></div><input ref={inputRef} hidden type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)void processImage(f);e.currentTarget.value=''}}/></div><div className="scanner-illustration"><div className="scan-orbit orbit-one"/><div className="scan-orbit orbit-two"/><div className="scan-receipt"><ReceiptText size={42}/><i/><i/><i/><b><ScanLine size={22}/></b></div><span className="scan-spark">✦</span></div></section>
+      <div className="scanner-info-grid"><div className="panel scanner-info"><span className="info-number">01</span><Camera size={18}/><strong>Capture or upload</strong><p>Use your phone's rear camera or choose an image from your device.</p></div><div className="panel scanner-info"><span className="info-number">02</span><ScanLine size={18}/><strong>Automatic recognition</strong><p>OCR detects key details such as merchant, date, amount, and payment method.</p></div><div className="panel scanner-info"><span className="info-number">03</span><ShieldCheck size={18}/><strong>Review and save</strong><p>You can edit every result. No transaction is saved without your confirmation.</p></div></div>
+      {busy&&<div className="scanner-progress panel"><LoaderCircle size={18} className="scanner-spin"/><div><strong>Reading image...</strong><p>The first scan may take a little longer while OCR data is downloaded.</p></div></div>}
+      <section className="panel scanner-history"><div className="scanner-panel-head"><div><span className="panel-kicker">RECENT ACTIVITY</span><h2>Scan history</h2></div><span className="history-count">{history.length} scan</span></div>{history.length===0?<div className="scanner-empty"><ReceiptText size={25}/><strong>No scans yet</strong><p>Your scanned receipts will appear here.</p></div>:<div className="history-list">{history.map(row=><div className="history-row" key={row.id}><img src={row.image} alt="Receipt thumbnail"/><div className="history-main"><strong>{row.merchant}</strong><span>{row.date} · {row.category}</span></div><div className="history-amount">{money(row.amount)}</div><span className={`history-status ${row.status==='Saved'?'saved':''}`}>{row.status}</span><button className="icon-button" aria-label="Delete scan history" onClick={()=>setHistory(h=>h.filter(x=>x.id!==row.id))}><Trash2 size={14}/></button></div>)}</div>}</section></>}
+    <p className="scanner-footnote"><ShieldCheck size={13}/> Images and OCR results are processed in your browser. MONETRA transactions are stored locally on this device, not in a cloud database.</p>
+  </div>
+}
+
+function PageHeading({eyebrow,title,description,action}:{eyebrow:string,title:string,description:string,action?:ReactNode}) {
+  return <div className="page-heading page-enter"><div><div className="eyebrow"><span/>{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action}</div>
+}
+function MonthControl({month,setMonth}:{month:string,setMonth:(v:string)=>void}) {
+  return <div className="month-control"><button onClick={()=>setMonth(monthShift(month,-1))} aria-label="Previous month"><ChevronLeft size={16}/></button><span>{monthLabel(month)}</span><button onClick={()=>setMonth(monthShift(month,1))} aria-label="Next month"><ChevronRight size={16}/></button></div>
+}
+function Metric({label,value,sub,icon:Icon,tone='neutral',trend}:{label:string,value:string,sub:string,icon:any,tone?:string,trend?:string}) {
+  const [open,setOpen]=useState(false)
+  return <>
+    <button type="button" className={`metric-card metric-card-button tone-${tone}`} onClick={()=>setOpen(true)} aria-label={`Open details for ${label}`}>
+      <span className="metric-top"><span>{label}</span><span className={`metric-icon ${tone}`}><Icon size={17}/></span></span>
+      <span className="metric-value">{value}</span>
+      <span className="metric-foot"><span>{sub}</span>{trend&&<span className="metric-trend">{trend}</span>}</span>
+    </button>
+    {open&&<div className="modal-backdrop metric-detail-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}>
+      <section className="modal metric-detail-modal" role="dialog" aria-modal="true" aria-label={`${label} details`}>
+        <div className="modal-head"><div><span className="panel-kicker">QUICK OVERVIEW</span><h2>{label}</h2></div><button type="button" className="icon-button" onClick={()=>setOpen(false)} aria-label="Close details"><X size={18}/></button></div>
+        <div className={`metric-detail-icon ${tone}`}><Icon size={21}/></div>
+        <strong className="metric-detail-value">{value}</strong>
+        <p>{sub}{trend?` · ${trend}`:''}</p>
+        <button type="button" className="primary-button metric-detail-close" onClick={()=>setOpen(false)}>Got it</button>
+      </section>
+    </div>}
+  </>
+}
+function ChartTip({active,payload,label}:any) {
+  if(!active||!payload?.length)return null
+  return <div className="chart-tooltip"><span>{label}</span>{payload.map((p:any)=><strong key={p.dataKey}>{p.name||p.dataKey}: {money(p.value)}</strong>)}</div>
+}
+function Dashboard(p:any) {
+  const {month,setMonth,income,expenses,balance,savingsRate,totalSaved,utilization,allocated,categoryData,monthlyData,transactions,highestCategory,expenseChange,budgets,onAdd,onNavigate,onEdit}=p
+  return <div className="page-stack">
+    <PageHeading eyebrow="YOUR FINANCIAL OVERVIEW" title="Good money habits start here." description="A clear view of your cash flow, spending, and what you're building toward." action={<button className="primary-button" onClick={onAdd}><Plus size={16}/> Add transaction <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
+    <div className="overview-toolbar"><div className="live-status"><span className="live-dot"/>{transactions.length} records this month</div><MonthControl month={month} setMonth={setMonth}/></div>
+    <div className="metric-grid">
+      <Metric label="Total income" value={money(income)} sub="Money received this month" icon={ArrowDownRight} tone="green"/>
+      <Metric label="Total expenses" value={money(expenses)} sub="Money spent this month" icon={ArrowUpRight} tone="amber" trend={expenseChange===null?'':`${expenseChange>=0?'+':''}${expenseChange.toFixed(1)}% vs last month`}/>
+      <Metric label="Remaining balance" value={money(balance)} sub="Income minus expenses" icon={Wallet} tone="mint"/>
+      <Metric label="Total savings" value={money(totalSaved)} sub="Saved across your goals" icon={PiggyBank} tone="blue"/><Metric label="Savings rate" value={`${savingsRate.toFixed(1)}%`} sub="Positive monthly cash flow / income" icon={TrendingUp} tone="mint"/>
+    </div>
+    <div className="dashboard-grid">
+      <section className="panel cashflow-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">CASH FLOW</span><h2>Income vs expenses</h2></div><button className="text-link" onClick={()=>onNavigate('Analytics')}>View analytics <ArrowUpRight size={14}/></button></div>
+        <div className="chart-legend"><span><i className="legend-income"/>Income</span><span><i className="legend-expense"/>Expenses</span></div>
+        <div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyData} barGap={7}><CartesianGrid stroke="#ffffff0c" vertical={false}/><XAxis dataKey="month" tick={{fill:'#777f77',fontSize:11}} axisLine={false} tickLine={false}/><YAxis tickFormatter={shortMoney} tick={{fill:'#777f77',fontSize:10}} axisLine={false} tickLine={false} width={54}/><Tooltip content={<ChartTip/>} cursor={{fill:'#ffffff08'}}/><Bar dataKey="income" name="Income" fill="#83bd8e" radius={[4,4,0,0]} maxBarSize={18}/><Bar dataKey="expenses" name="Expenses" fill="#c39c67" radius={[4,4,0,0]} maxBarSize={18}/></BarChart></ResponsiveContainer></div>
+      </section>
+      <section className="panel spending-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">SPENDING MIX</span><h2>Where it goes</h2></div><button className="icon-button subtle" onClick={()=>onNavigate('Analytics')} aria-label="More analytics"><ArrowUpRight size={16}/></button></div>
+        {categoryData.length?<><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="name" innerRadius="68%" outerRadius="91%" paddingAngle={3} stroke="none">{categoryData.map((d:any)=><Cell key={d.name} fill={d.color}/>)}</Pie><Tooltip formatter={(v:any)=>money(v)}/></PieChart></ResponsiveContainer><div className="donut-center"><strong>{shortMoney(expenses)}</strong><span>Total spent</span></div></div><div className="category-legend">{categoryData.slice(0,4).map((c:any)=><div key={c.name}><span><i style={{background:c.color}}/>{c.name}</span><strong>{Math.round(c.value/expenses*100)}%</strong></div>)}</div></>:<EmptyChart text="Add expenses to see your spending mix."/>}
+      </section>
+      <section className="panel budget-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">MONTHLY PLAN</span><h2>Budget pulse</h2></div><button className="text-link" onClick={()=>onNavigate('Monthly Budget')}>Manage <ArrowUpRight size={14}/></button></div>
+        <div className="budget-total"><strong>{money(expenses)}</strong><span>spent {allocated?`of ${money(allocated)}`:'· no budget set'}</span></div>
+        <div className="progress-track large"><span style={{width:`${Math.min(utilization,100)}%`}}/></div>
+        <div className="budget-caption"><span>{allocated?`${utilization.toFixed(0)}% of total budget used`:'Set category limits to track your budget'}</span><strong>{allocated?money(Math.max(0,allocated-expenses)):'—'}</strong></div>
+        <div className="budget-mini-list">{budgets.slice(0,3).map((b: Budget)=>{const spent=transactions.filter((t:Transaction)=>t.type==='expense'&&t.category===b.category).reduce((a:number,t:Transaction)=>a+t.amount,0);const pct=b.limit?spent/b.limit*100:0;return <div className="budget-mini" key={b.category}><div><span>{b.category}</span><strong>{money(spent)} <em>/ {money(b.limit)}</em></strong></div><div className="progress-track"><span className={pct>=100?'over':pct>=70?'warn':''} style={{width:`${Math.min(pct,100)}%`}}/></div></div>})}{!budgets.length&&<p className="muted-note">Your budget starts with one simple limit. Add one in Monthly Budget.</p>}</div>
+      </section>
+      <section className="panel insight-panel page-enter"><div className="insight-head"><div className="insight-symbol"><Sparkles size={17}/></div><span className="panel-kicker">A LITTLE CLARITY</span></div><h2>Your money, in perspective.</h2>
+        {transactions.length? <div className="insight-copy">{highestCategory?<p><strong>{highestCategory.name}</strong> is your biggest expense this month at <strong>{money(highestCategory.value)}</strong>.</p>:<p>No expense category has been recorded yet. Add an expense to begin.</p>}{expenseChange!==null&&<p>Spending is <strong>{Math.abs(expenseChange).toFixed(1)}% {expenseChange>=0?'higher':'lower'}</strong> than last month.</p>}<p>Your current cash-flow savings rate is <strong>{savingsRate.toFixed(1)}%</strong>.</p></div>:<p className="muted-note">Insights appear when you have enough real transaction history. Start by recording income and expenses.</p>}
+        <button className="text-link" onClick={()=>onNavigate('Analytics')}>Explore insights <ArrowUpRight size={14}/></button>
+      </section>
+    </div>
+    <section className="panel recent-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">LATEST ACTIVITY</span><h2>Recent transactions</h2></div><button className="text-link" onClick={()=>onNavigate('Transactions')}>All transactions <ArrowUpRight size={14}/></button></div><TransactionRows rows={transactions.slice().sort((a:Transaction,b:Transaction)=>b.date.localeCompare(a.date)).slice(0,5)} onEdit={onEdit}/></section>
+  </div>
+}
+function EmptyChart({text}:{text:string}) { return <div className="empty-chart"><div className="empty-orbit"><ChartNoAxesCombined size={20}/></div><p>{text}</p></div> }
+function TransactionRows({rows,onEdit,onDelete}:{rows:Transaction[],onEdit?:(t:Transaction)=>void,onDelete?:(id:string)=>void}) {
+  if(!rows.length)return <div className="empty-state"><div className="empty-orbit"><ArrowLeftRight size={20}/></div><strong>No transactions yet</strong><p>Your activity will show up here once you add a record.</p></div>
+  return <div className="transaction-list">{rows.map(t=><div className="transaction-row" key={t.id}><div className={`tx-symbol ${t.type}`}><span>{t.type==='income'?<ArrowDownRight size={16}/>:<ArrowUpRight size={16}/>}</span></div><div className="tx-main"><strong>{t.name}</strong><span>{t.category} <i>·</i> {new Date(`${t.date}T12:00:00`).toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'})}</span></div><strong className={`tx-amount ${t.type}`}>{t.type==='income'?'+':'−'}{money(t.amount)}</strong>{onEdit&&<button className="row-action" onClick={()=>onEdit(t)} aria-label={`Edit ${t.name}`}><Pencil size={14}/></button>}{onDelete&&<button className="row-action danger" onClick={()=>onDelete(t.id)} aria-label={`Delete ${t.name}`}><Trash2 size={14}/></button>}</div>)}</div>
+}
+function TransactionsPage(p:any) {
+  const {rows,query,setQuery,filterType,setFilterType,filterCategory,setFilterCategory,filterMonth,setFilterMonth,onAdd,onEdit,onDelete,onCSV}=p
+  const [openFilters,setOpenFilters]=useState(false)
+  return <div className="page-stack"><PageHeading eyebrow="YOUR MONEY MOVEMENT" title="Transactions" description="Every inflow and outflow, in one considered place." action={<button className="primary-button" onClick={onAdd}><Plus size={16}/> Add transaction <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
+    <section className="panel table-panel page-enter"><div className="table-toolbar"><div className="search-field"><Search size={16}/><input placeholder="Search transactions..." value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button onClick={()=>setQuery('')}><X size={14}/></button>}</div><div className="table-actions"><button className={`secondary-button ${openFilters?'selected':''}`} onClick={()=>setOpenFilters(!openFilters)}><SlidersHorizontal size={15}/> Filters</button><button className="secondary-button" onClick={onCSV}><Download size={15}/> Export CSV</button></div></div>
+      {openFilters&&<div className="filter-bar"><select value={filterType} onChange={e=>setFilterType(e.target.value)}><option value="all">All types</option><option value="income">Income</option><option value="expense">Expenses</option></select><select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)}><option value="all">All categories</option>{[...INCOME_CATEGORIES,...EXPENSE_CATEGORIES].map(c=><option key={c}>{c}</option>)}</select><input type="month" value={filterMonth==='all'?'':filterMonth} onChange={e=>setFilterMonth(e.target.value||'all')}/><button className="text-link" onClick={()=>{setFilterType('all');setFilterCategory('all');setFilterMonth('all');setQuery('')}}>Reset filters</button></div>}
+      <div className="table-summary"><span>{rows.length} transactions found</span><span>Sorted by most recent</span></div><div className="table-scroll"><table><thead><tr><th>TRANSACTION</th><th>CATEGORY</th><th>DATE</th><th>TYPE</th><th className="align-right">AMOUNT</th><th/></tr></thead><tbody>{rows.map((t:Transaction)=><tr key={t.id}><td><div className="table-name"><div className={`tx-symbol ${t.type}`}>{t.type==='income'?<ArrowDownRight size={15}/>:<ArrowUpRight size={15}/>}</div><div><strong>{t.name}</strong><small>{t.notes||'—'}</small></div></div></td><td>{t.category}</td><td>{new Date(`${t.date}T12:00:00`).toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'numeric'})}</td><td><span className={`type-tag ${t.type}`}>{t.type==='income'?'Income':'Expense'}</span></td><td className={`align-right table-amount ${t.type}`}>{t.type==='income'?'+':'−'}{money(t.amount)}</td><td><div className="table-row-actions"><button onClick={()=>onEdit(t)} aria-label="Edit transaction"><Pencil size={14}/></button><button onClick={()=>onDelete(t.id)} aria-label="Delete transaction"><Trash2 size={14}/></button></div></td></tr>)}</tbody></table>{!rows.length&&<EmptyChart text="No transactions match these filters. Try adjusting your search or add a record."/ >}</div>
+    </section></div>
+}
+function BudgetPage({budgets,transactions,onSave,month,setMonth}:any) {
+  const [draft,setDraft]=useState<Record<string,string>>({})
+  const expenseBy=(category:string)=>transactions.filter((t:Transaction)=>t.type==='expense'&&t.category===category).reduce((a:number,t:Transaction)=>a+t.amount,0)
+  const categories=EXPENSE_CATEGORIES
+  const total=budgets.reduce((a: number,b:Budget)=>a+b.limit,0), spent=transactions.filter((t:Transaction)=>t.type==='expense').reduce((a:number,t:Transaction)=>a+t.amount,0)
   const status=(pct:number)=>pct>=100?['Budget exceeded','over']:pct>=90?['Near budget limit','danger']:pct>=70?['Approaching spending limit','warn']:['Budget under control','good']
   const updateLimit=(category:string,raw:string)=>{
     const next=limitedDigits(raw)
@@ -33,7 +449,7 @@ function CalendarPage({month,setMonth,transactions,selectedDate,setSelectedDate}
       <section className="panel daily-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">DAY DETAIL</span><h2>{new Date(`${selectedDate}T12:00:00`).toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long'})}</h2></div><CalendarDays size={18} className="muted-icon"/></div><div className="daily-totals"><div><span>Income</span><strong className="positive">{money(dailyIncome)}</strong></div><div><span>Expenses</span><strong className="negative">{money(dailyExpense)}</strong></div></div><div className="daily-net"><span>Net movement</span><strong className={dailyIncome-dailyExpense>=0?'positive':'negative'}>{money(dailyIncome-dailyExpense)}</strong></div><TransactionRows rows={daily}/></section></div>
   </div>
 }
-function GoalsPage({goals,onSave,onDelete}:any) {
+function GoalsPage({goals,onSave,onDelete}:{goals:Goal[];onSave:(g:Goal)=>void;onDelete:(id:string)=>void}) {
   const categories=['Emergency Fund','Education','Technology','Travel','Vehicle','Investment','Personal','Other']
   const [form,setForm]=useState(false),[edit,setEdit]=useState<Goal|null>(null)
   const [name,setName]=useState(''),[category,setCategory]=useState('Personal'),[target,setTarget]=useState(''),[saved,setSaved]=useState(''),[date,setDate]=useState(''),[description,setDescription]=useState(''),[priority,setPriority]=useState<'Low'|'Medium'|'High'>('Medium')
