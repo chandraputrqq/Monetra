@@ -8,7 +8,7 @@ import {
   Target, FileText, Settings, Plus, Search, Bell, ChevronDown, ChevronLeft,
   ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2,
   X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal,
-  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, ScanLine, Camera, ImagePlus, LoaderCircle, ReceiptText, ShieldCheck, RefreshCw
+  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, ScanLine, Camera, ImagePlus, LoaderCircle, ReceiptText, ShieldCheck, RefreshCw, Users
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,18 +18,21 @@ import {
 gsap.registerPlugin(ScrollTrigger)
 
 type TxType = 'income' | 'expense'
-type Transaction = { id: string; name: string; amount: number; type: TxType; category: string; date: string; notes?: string }
+type Transaction = { id: string; name: string; amount: number; type: TxType; category: string; date: string; notes?: string; recurringId?: string }
+type Recurring = { id: string; name: string; amount: number; type: TxType; category: string; frequency: 'weekly' | 'monthly'; day: number; startDate: string; notes?: string; active: boolean; lastGenerated?: string }
 type Budget = { category: string; limit: number }
 type GoalContribution = { id:string; type:'deposit'|'withdrawal'; amount:number; date:string; notes:string; balance:number }
 type Goal = { id:string; name:string; target:number; saved:number; date:string; category?:string; description?:string; priority?:'Low'|'Medium'|'High'; paused?:boolean; completed?:boolean; contributions?:GoalContribution[] }
-type Page = 'Dashboard' | 'Smart Scanner' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Monthly Reports' | 'Settings'
+type DebtPayment = { id: string; amount: number; date: string; notes?: string }
+type Debt = { id: string; person: string; direction: 'lent' | 'borrowed'; amount: number; date: string; due?: string; notes?: string; payments: DebtPayment[] }
+type Page = 'Dashboard' | 'Smart Scanner' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Settings'
 
 const EXPENSE_CATEGORIES = ['Food & Beverages','Transportation','Shopping','Entertainment','Education','Bills & Utilities','Health','Housing','Subscriptions','Other']
 const INCOME_CATEGORIES = ['Salary','Business','Freelance','Investment Returns','Other Income']
 const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
   { label:'Dashboard', icon:LayoutDashboard }, { label:'Smart Scanner', icon:ScanLine }, { label:'Transactions', icon:ArrowLeftRight },
   { label:'Monthly Budget', icon:Wallet }, { label:'Analytics', icon:ChartNoAxesCombined },
-  { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target },
+  { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target }, { label:'Debts', icon:Users },
   { label:'Monthly Reports', icon:FileText }, { label:'Settings', icon:Settings }
 ]
 const COLORS = ['#9bd6a5','#6cae7a','#4e8960','#c4a46a','#839b91','#71877d','#b4c6b7','#8d9c73','#9d826c','#718b9a']
@@ -58,6 +61,27 @@ const monthShift = (key: string, offset: number) => {
   const d = new Date(Number(key.slice(0,4)), Number(key.slice(5,7))-1+offset, 1)
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 }
+const dueDates = (r: Recurring, after: string, upTo: string): string[] => {
+  const out: string[] = []
+  if (r.frequency === 'weekly') {
+    const d = new Date(`${r.startDate}T12:00:00`)
+    for (let n = 0; n < 1200; n++) { const iso = dateISO(d); if (iso > upTo) break; if (iso > after) out.push(iso); d.setDate(d.getDate() + 7) }
+  } else {
+    let key = r.startDate.slice(0,7)
+    for (let n = 0; n < 400; n++) {
+      const y = Number(key.slice(0,4)), m = Number(key.slice(5,7)), last = new Date(y, m, 0).getDate()
+      const iso = `${key}-${String(Math.min(r.day, last)).padStart(2,'0')}`
+      if (iso > upTo) break
+      if (iso >= r.startDate && iso > after) out.push(iso)
+      key = monthShift(key, 1)
+    }
+  }
+  return out
+}
+const nextDueDate = (r: Recurring): string => {
+  const today = dateISO(), far = new Date(); far.setDate(far.getDate() + 400)
+  return dueDates(r, today, dateISO(far))[0] || ''
+}
 const sum = (items: Transaction[], type: TxType) => items.filter(t=>t.type===type).reduce((a,t)=>a+t.amount,0)
 const download = (name: string, content: string, type: string) => {
   const blob = new Blob([content],{type}); const url = URL.createObjectURL(blob)
@@ -77,12 +101,16 @@ export default function App() {
   const [selectedDate,setSelectedDate] = useState(dateISO())
   const [mobileNav,setMobileNav] = useState(false)
   const [confirmClear,setConfirmClear] = useState(false)
+  const [recModal,setRecModal] = useState(false)
+  const [editingRec,setEditingRec] = useState<Recurring|null>(null)
   const [toast,setToast] = useState('')
   const mainRef = useRef<HTMLDivElement>(null)
 
   const transactions: Transaction[] = store.transactions || []
   const budgets: Budget[] = store.budgets || []
   const goals: Goal[] = store.goals || []
+  const recurring: Recurring[] = store.recurring || []
+  const debts: Debt[] = store.debts || []
 
   // Personal mode: persist all records in this browser only. No account or cloud connection.
   useEffect(()=>{
@@ -100,6 +128,50 @@ export default function App() {
   },{scope:mainRef,dependencies:[page]})
 
   const notify = (message: string) => { setToast(message); window.setTimeout(()=>setToast(''),2600) }
+  // Auto-record: every active recurring rule writes its due transactions once, then remembers the last run date.
+  useEffect(()=>{
+    const list: Recurring[] = store.recurring || []
+    const todayIso = dateISO()
+    const created: Transaction[] = []
+    const updated = list.map((r: Recurring)=>{
+      if (!r.active) return r
+      const dates = dueDates(r, r.lastGenerated || '', todayIso)
+      if (!dates.length) return r
+      dates.forEach((d: string)=>created.push({ id:`rec-${r.id}-${d}`, name:r.name, amount:r.amount, type:r.type, category:r.category, date:d, notes:r.notes?`${r.notes} · Auto-recorded`:'Auto-recorded', recurringId:r.id }))
+      return { ...r, lastGenerated: todayIso }
+    })
+    if (!created.length) return
+    setStore((s:any)=>{
+      const known = new Set((s.transactions || []).map((t:Transaction)=>t.id))
+      return { ...s, recurring: updated, transactions: [...created.filter((t:Transaction)=>!known.has(t.id)), ...(s.transactions || [])] }
+    })
+    notify(`${created.length} recurring transaction${created.length>1?'s':''} recorded automatically`)
+  },[store.recurring])
+  const saveDebt = (d: Debt) => {
+    setStore((s:any)=>{
+      const list: Debt[] = s.debts || []
+      return { ...s, debts: list.some((x:Debt)=>x.id===d.id) ? list.map((x:Debt)=>x.id===d.id?d:x) : [d, ...list] }
+    })
+    notify('Debt record saved')
+  }
+  const deleteDebt = (id: string) => {
+    if (!window.confirm('Delete this debt record and its payment history? This cannot be undone.')) return
+    setStore((s:any)=>({ ...s, debts:(s.debts || []).filter((x:Debt)=>x.id!==id) })); notify('Debt record deleted')
+  }
+  const saveRecurring = (r: Recurring) => {
+    setStore((s:any)=>{
+      const list: Recurring[] = s.recurring || []
+      return { ...s, recurring: list.some((x:Recurring)=>x.id===r.id) ? list.map((x:Recurring)=>x.id===r.id?r:x) : [...list, r] }
+    })
+    setRecModal(false); setEditingRec(null); notify(editingRec?'Recurring rule updated':'Recurring rule saved')
+  }
+  const deleteRecurring = (id: string) => {
+    if (!window.confirm('Delete this recurring rule? Transactions already recorded will stay.')) return
+    setStore((s:any)=>({ ...s, recurring:(s.recurring || []).filter((x:Recurring)=>x.id!==id) })); notify('Recurring rule deleted')
+  }
+  const toggleRecurring = (id: string) => {
+    setStore((s:any)=>({ ...s, recurring:(s.recurring || []).map((x:Recurring)=>x.id===id ? (x.active ? { ...x, active:false } : { ...x, active:true, lastGenerated:dateISO() }) : x) }))
+  }
   const monthTx = useMemo(()=>transactions.filter(t=>monthKey(t.date)===month),[transactions,month])
   const income = sum(monthTx,'income'), expenses = sum(monthTx,'expense'), balance = income-expenses
   const savingsRate = income>0 ? Math.max(0,(balance/income)*100) : 0
@@ -177,11 +249,12 @@ export default function App() {
     switch(page) {
       case 'Dashboard': return <Dashboard month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} totalSaved={goals.reduce((a:number,g:Goal)=>a+g.saved,0)} utilization={utilization} allocated={allocated} categoryData={categoryData} monthlyData={monthlyData} transactions={monthTx} highestCategory={highestCategory} expenseChange={expenseChange} budgets={budgets} onAdd={openAdd} onNavigate={setPage} onEdit={openEdit} />
       case 'Smart Scanner': return <SmartScanner transactions={transactions} onSave={(tx:Transaction)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify('Scanned transaction saved to MONETRA')}} notify={notify} />
-      case 'Transactions': return <TransactionsPage rows={filtered} query={query} setQuery={setQuery} filterType={filterType} setFilterType={setFilterType} filterCategory={filterCategory} setFilterCategory={setFilterCategory} filterMonth={filterMonth} setFilterMonth={setFilterMonth} onAdd={openAdd} onEdit={openEdit} onDelete={removeTx} onCSV={exportCSV} />
+      case 'Transactions': return <div className="page-stack"><TransactionsPage rows={filtered} query={query} setQuery={setQuery} filterType={filterType} setFilterType={setFilterType} filterCategory={filterCategory} setFilterCategory={setFilterCategory} filterMonth={filterMonth} setFilterMonth={setFilterMonth} onAdd={openAdd} onEdit={openEdit} onDelete={removeTx} onCSV={exportCSV} /><RecurringPanel rules={recurring} onAdd={()=>{setEditingRec(null);setRecModal(true)}} onEdit={(r:Recurring)=>{setEditingRec(r);setRecModal(true)}} onDelete={deleteRecurring} onToggle={toggleRecurring} /></div>
       case 'Monthly Budget': return <BudgetPage budgets={budgets} transactions={monthTx} onSave={saveBudget} month={month} setMonth={setMonth} />
       case 'Analytics': return <AnalyticsPage categoryData={categoryData} monthlyData={monthlyData} month={month} setMonth={setMonth} transactions={transactions} />
       case 'Financial Calendar': return <CalendarPage month={month} setMonth={setMonth} transactions={transactions} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
       case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
+      case 'Debts': return <DebtsPage debts={debts} onSave={saveDebt} onDelete={deleteDebt} />
       case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} transactions={monthTx} />
       case 'Settings': return <SettingsPage store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
     }
@@ -207,8 +280,9 @@ export default function App() {
       <div className="page-content">{renderPage()}</div>
       <footer className="app-footer"><span>MONETRA <i>·</i> Know your money. Control your future.</span><span>Private on this browser <b>●</b> Saved on this device</span></footer>
     </main>
+    {recModal&&<RecurringModal initial={editingRec} onClose={()=>{setRecModal(false);setEditingRec(null)}} onSave={saveRecurring}/>}
     {modal&&<TransactionModal initial={editing} onClose={()=>{setModal(false);setEditing(null)}} onSave={addOrUpdate}/>}
-    {confirmClear&&<ConfirmModal title="Clear all financial data?" body="This permanently removes transactions, budgets, and goals stored in this browser. Export your data first if you need a backup." onCancel={()=>setConfirmClear(false)} onConfirm={()=>{setStore({transactions:[],budgets:[],goals:[],currency:'IDR',demo:false});setConfirmClear(false);notify('Local data cleared')}}/>}
+    {confirmClear&&<ConfirmModal title="Clear all financial data?" body="This permanently removes transactions, budgets, and goals stored in this browser. Export your data first if you need a backup." onCancel={()=>setConfirmClear(false)} onConfirm={()=>{setStore({transactions:[],budgets:[],goals:[],recurring:[],debts:[],currency:'IDR',demo:false});setConfirmClear(false);notify('Local data cleared')}}/>}
     {toast&&<div className="toast"><Check size={15}/>{toast}</div>}
   </div>
 }
@@ -531,7 +605,7 @@ function SettingsPage({store,onDemo,onClear,onImport}:any) {
   const handleFile=(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const parsed=JSON.parse(String(reader.result));if(!parsed||!Array.isArray(parsed.transactions)||!Array.isArray(parsed.budgets)||!Array.isArray(parsed.goals))throw new Error('Invalid format');if(window.confirm('Importing this backup will replace the data currently stored in MONETRA. Continue?'))onImport(parsed)}catch{window.alert('This file is not a valid MONETRA backup.')} };reader.readAsText(file);e.target.value=''}
   const backup=()=>download('monetra-backup.json',JSON.stringify(store,null,2),'application/json')
   return <div className="page-stack"><PageHeading eyebrow="YOUR SPACE, YOUR RULES" title="Settings" description="Manage your personal data and backups on this device."/>
-    <section className="panel settings-panel page-enter"><div className="settings-section"><div className="settings-icon"><CircleDollarSign size={18}/></div><div className="settings-copy"><h2>Currency & region</h2><p>MONETRA currently formats all financial values in Indonesian Rupiah (IDR).</p><span className="settings-value">IDR <i>·</i> Indonesian Rupiah <i>·</i> Indonesia</span></div></div><div className="settings-section"><div className="settings-icon"><Download size={18}/></div><div className="settings-copy"><h2>Back up your data</h2><p>Export a portable JSON backup of transactions, budgets, and savings goals.</p><button className="secondary-button" onClick={backup}><Download size={15}/> Download backup</button></div></div><div className="settings-section"><div className="settings-icon"><Upload size={18}/></div><div className="settings-copy"><h2>Restore a backup</h2><p>Import a previous MONETRA backup. Existing local data is replaced only after confirmation.</p><input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleFile}/><button className="secondary-button" onClick={()=>fileRef.current?.click()}><Upload size={15}/> Import backup</button></div></div><div className="settings-section"><div className="settings-icon"><Sparkles size={18}/></div><div className="settings-copy"><h2>Explore with demo data</h2><p>Add clearly labeled sample transactions to see how the dashboard and analytics work. Existing records are preserved.</p><button className="secondary-button" onClick={onDemo}><Plus size={15}/> Add demo transactions</button></div></div><div className="settings-section destructive"><div className="settings-icon"><Trash2 size={18}/></div><div className="settings-copy"><h2>Clear local data</h2><p>Remove all transactions, budgets, and goals saved in this browser. This action cannot be undone.</p><button className="danger-button" onClick={onClear}><Trash2 size={15}/> Clear all data</button></div></div></section>
+    <section className="panel settings-panel page-enter"><div className="settings-section"><div className="settings-icon"><CircleDollarSign size={18}/></div><div className="settings-copy"><h2>Currency & region</h2><p>MONETRA currently formats all financial values in Indonesian Rupiah (IDR).</p><span className="settings-value">IDR <i>·</i> Indonesian Rupiah <i>·</i> Indonesia</span></div></div><div className="settings-section"><div className="settings-icon"><Download size={18}/></div><div className="settings-copy"><h2>Back up your data</h2><p>Export a portable JSON backup of transactions, budgets, savings goals, and debts.</p><button className="secondary-button" onClick={backup}><Download size={15}/> Download backup</button></div></div><div className="settings-section"><div className="settings-icon"><Upload size={18}/></div><div className="settings-copy"><h2>Restore a backup</h2><p>Import a previous MONETRA backup. Existing local data is replaced only after confirmation.</p><input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleFile}/><button className="secondary-button" onClick={()=>fileRef.current?.click()}><Upload size={15}/> Import backup</button></div></div><div className="settings-section"><div className="settings-icon"><Sparkles size={18}/></div><div className="settings-copy"><h2>Explore with demo data</h2><p>Add clearly labeled sample transactions to see how the dashboard and analytics work. Existing records are preserved.</p><button className="secondary-button" onClick={onDemo}><Plus size={15}/> Add demo transactions</button></div></div><div className="settings-section destructive"><div className="settings-icon"><Trash2 size={18}/></div><div className="settings-copy"><h2>Clear local data</h2><p>Remove all transactions, budgets, and goals saved in this browser. This action cannot be undone.</p><button className="danger-button" onClick={onClear}><Trash2 size={15}/> Clear all data</button></div></div></section>
     <div className="privacy-note page-enter"><div><Check size={17}/></div><p><strong>Your finances stay yours.</strong> MONETRA stores records in this browser only. Data is not sent to a cloud database. Export a JSON backup regularly, especially before clearing browser data or changing devices.</p></div>
   </div>
 }
@@ -540,5 +614,82 @@ function TransactionModal({initial,onClose,onSave}:{initial:Transaction|null,onC
   useEffect(()=>{setCategory(type==='income'?'Salary':'Food & Beverages')},[type])
   const submit=(e:FormEvent)=>{e.preventDefault();if(!name.trim()){setError('Please enter a transaction name.');return}if(!Number.isFinite(Number(amount))||Number(amount)<=0){setError('Amount must be greater than zero.');return}if(!date){setError('Please choose a transaction date.');return}onSave({id:initial?.id||uid(),name:name.trim(),amount:Number(amount),type,category,date,notes:notes.trim()})}
   return <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><form className="modal" onSubmit={submit}><div className="modal-head"><div><span className="panel-kicker">{initial?'UPDATE YOUR RECORD':'RECORD A MONEY MOVEMENT'}</span><h2>{initial?'Edit transaction':'New transaction'}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button></div><div className="type-switch"><button type="button" className={type==='expense'?'selected expense':''} onClick={()=>setType('expense')}><ArrowUpRight size={15}/> Expense</button><button type="button" className={type==='income'?'selected income':''} onClick={()=>setType('income')}><ArrowDownRight size={15}/> Income</button></div><label>Transaction name<input autoFocus required value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Monthly salary"/></label><label>Amount (IDR)<div className="amount-input"><span>Rp</span><input required type="text" inputMode="numeric" maxLength={13} value={formatDigits(amount)} onChange={e=>setAmount(limitedDigits(e.target.value))} placeholder="1.000.000" aria-label="Transaction amount in rupiah"/></div></label><div className="form-row"><label>Category<select value={category} onChange={e=>setCategory(e.target.value)}>{(type==='income'?INCOME_CATEGORIES:EXPENSE_CATEGORIES).map(c=><option key={c}>{c}</option>)}</select></label><label>Date<input required type="date" value={date} onChange={e=>setDate(e.target.value)}/></label></div><label>Notes <span className="optional">(optional)</span><textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Add a little context..."/></label>{error&&<p className="form-error"><AlertTriangle size={14}/>{error}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button className="primary-button" type="submit">{initial?'Save changes':'Save transaction'} <ArrowUpRight size={15}/></button></div></form></div>
+}
+function DebtsPage({debts,onSave,onDelete}:{debts:Debt[];onSave:(d:Debt)=>void;onDelete:(id:string)=>void}) {
+  const today=dateISO()
+  const paidOf=(d:Debt)=>d.payments.reduce((a:number,p:DebtPayment)=>a+p.amount,0)
+  const remainingOf=(d:Debt)=>Math.max(0,d.amount-paidOf(d))
+  const statusOf=(d:Debt)=>remainingOf(d)===0?'Settled':d.due&&d.due<today?'Overdue':'Open'
+  const fmt=(iso:string)=>new Date(`${iso}T12:00:00`).toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'})
+  const [search,setSearch]=useState(''),[dirFilter,setDirFilter]=useState('all'),[statusFilter,setStatusFilter]=useState('open')
+  const [form,setForm]=useState(false),[edit,setEdit]=useState<Debt|null>(null)
+  const [person,setPerson]=useState(''),[direction,setDirection]=useState<'lent'|'borrowed'>('lent'),[amount,setAmount]=useState(''),[date,setDate]=useState(today),[due,setDue]=useState(''),[notes,setNotes]=useState(''),[formError,setFormError]=useState('')
+  const [payDebt,setPayDebt]=useState<Debt|null>(null),[payAmount,setPayAmount]=useState(''),[payDate,setPayDate]=useState(today),[payNotes,setPayNotes]=useState(''),[payError,setPayError]=useState('')
+  const [openId,setOpenId]=useState<string|null>(null)
+  const owedToMe=debts.filter((d:Debt)=>d.direction==='lent').reduce((a:number,d:Debt)=>a+remainingOf(d),0)
+  const iOwe=debts.filter((d:Debt)=>d.direction==='borrowed').reduce((a:number,d:Debt)=>a+remainingOf(d),0)
+  const openCount=debts.filter((d:Debt)=>statusOf(d)!=='Settled').length
+  const overdueCount=debts.filter((d:Debt)=>statusOf(d)==='Overdue').length
+  const visible=debts.filter((d:Debt)=>d.person.toLowerCase().includes(search.toLowerCase())&&(dirFilter==='all'||d.direction===dirFilter)&&(statusFilter==='all'||(statusFilter==='open'?statusOf(d)!=='Settled':statusOf(d)==='Settled'))).sort((a:Debt,b:Debt)=>(statusOf(a)==='Settled'?1:0)-(statusOf(b)==='Settled'?1:0)||(a.due||'9999').localeCompare(b.due||'9999')||b.date.localeCompare(a.date))
+  const begin=(d?:Debt)=>{setEdit(d||null);setPerson(d?.person||'');setDirection(d?.direction||'lent');setAmount(d?String(d.amount):'');setDate(d?.date||today);setDue(d?.due||'');setNotes(d?.notes||'');setFormError('');setForm(true)}
+  const submit=(e:FormEvent)=>{e.preventDefault();const value=Number(limitedDigits(amount));if(!person.trim()){setFormError('Please enter who this is with.');return}if(!value){setFormError('Amount must be greater than zero.');return}if(edit&&value<paidOf(edit)){setFormError(`Amount cannot be lower than the ${money(paidOf(edit))} already paid.`);return}if(due&&due<date){setFormError('Due date cannot be before the date of the debt.');return}onSave({id:edit?.id||uid(),person:person.trim(),direction,amount:value,date,due:due||undefined,notes:notes.trim(),payments:edit?.payments||[]});setForm(false)}
+  const openPay=(d:Debt)=>{setPayDebt(d);setPayAmount('');setPayDate(today);setPayNotes('');setPayError('')}
+  const commitPay=(e:FormEvent)=>{e.preventDefault();if(!payDebt)return;const value=Number(limitedDigits(payAmount));if(!value){setPayError('Enter an amount greater than zero.');return}if(value>remainingOf(payDebt)){setPayError(`Payment cannot exceed the remaining ${money(remainingOf(payDebt))}.`);return}onSave({...payDebt,payments:[...payDebt.payments,{id:uid(),amount:value,date:payDate,notes:payNotes.trim()}]});setPayDebt(null)}
+  const removePayment=(d:Debt,id:string)=>{if(!window.confirm('Remove this payment? The remaining balance will go back up.'))return;onSave({...d,payments:d.payments.filter((p:DebtPayment)=>p.id!==id)})}
+  return <div className="page-stack goals-page"><PageHeading eyebrow="WHO OWES WHAT" title="Debts" description="Keep track of money you lent to friends and money you owe, with partial payments." action={<button className="primary-button" onClick={()=>begin()}><Plus size={16}/> Add debt <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
+    <section className="goals-overview page-enter" style={{gridTemplateColumns:'repeat(3,minmax(0,1fr))'}}>
+      <div className="goal-overview-card lead"><span className="panel-kicker">THEY OWE ME</span><strong>{money(owedToMe)}</strong><small>Still to be paid back to you</small></div>
+      <div className="goal-overview-card"><span className="panel-kicker">I OWE</span><strong>{money(iOwe)}</strong><small>{openCount} open · {overdueCount} overdue</small></div>
+      <div className="goal-overview-card"><span className="panel-kicker">NET POSITION</span><strong className={owedToMe-iOwe>=0?'positive':'negative'}>{owedToMe-iOwe<0?'−':''}{money(Math.abs(owedToMe-iOwe))}</strong><small>{owedToMe-iOwe>=0?'In your favor':'You owe more than you are owed'}</small></div>
+    </section>
+    <section className="goals-toolbar panel page-enter"><div className="goals-search"><Search size={15}/><input aria-label="Search by name" placeholder="Search by name..." value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="goals-filters"><select aria-label="Filter by direction" value={dirFilter} onChange={e=>setDirFilter(e.target.value)}><option value="all">Everyone</option><option value="lent">They owe me</option><option value="borrowed">I owe them</option></select><select aria-label="Filter by status" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="open">Open</option><option value="settled">Settled</option><option value="all">All records</option></select></div></section>
+    <section className="panel page-enter">{visible.length?<div className="transaction-list">{visible.map((d:Debt)=>{const status=statusOf(d),paid=paidOf(d),left=remainingOf(d),pct=d.amount>0?Math.min(100,paid/d.amount*100):0;return <div key={d.id}>
+      <div className="transaction-row" style={status==='Settled'?{opacity:.6}:undefined}><div className={`tx-symbol ${d.direction==='lent'?'income':'expense'}`}><span style={{fontSize:12,fontWeight:600}}>{(d.person.trim()[0]||'?').toUpperCase()}</span></div>
+        <div className="tx-main"><strong>{d.person}</strong><span>{d.direction==='lent'?'Owes you':'You owe'}<i>·</i>{fmt(d.date)}{d.due&&<><i>·</i>Due {fmt(d.due)}</>}{d.notes&&<><i>·</i>{d.notes}</>}</span><div className="progress-track"><span className={status==='Overdue'?'danger':''} style={{width:`${pct}%`}}/></div><span>Paid {money(paid)} of {money(d.amount)}</span></div>
+        <div style={{display:'grid',gap:5,justifyItems:'end'}}><strong className={`tx-amount ${d.direction==='lent'?'income':'expense'}`}>{status==='Settled'?'Settled':money(left)}</strong>{status!=='Open'&&<span className={`goal-status ${status.toLowerCase()}`}>{status}</span>}</div>
+        {status!=='Settled'&&<button className="secondary-button" onClick={()=>openPay(d)}>{d.direction==='lent'?'Received':'Paid'}</button>}
+        <button className="row-action" onClick={()=>setOpenId(openId===d.id?null:d.id)} aria-label="Payment history">{openId===d.id?<ChevronDown size={15}/>:<ChevronRight size={15}/>}</button><button className="row-action" onClick={()=>begin(d)} aria-label="Edit"><Pencil size={14}/></button><button className="row-action danger" onClick={()=>onDelete(d.id)} aria-label="Delete"><Trash2 size={14}/></button></div>
+      {openId===d.id&&<div className="goal-detail-history" style={{padding:'0 0 10px 44px'}}>{d.payments.length?d.payments.slice().sort((a:DebtPayment,b:DebtPayment)=>b.date.localeCompare(a.date)).map((p:DebtPayment)=><div className="goal-history-row" key={p.id}><div className="goal-history-icon deposit"><Check size={14}/></div><div className="goal-history-main"><strong>{d.direction==='lent'?'Payment received':'Payment made'}</strong><span>{fmt(p.date)}{p.notes?` · ${p.notes}`:''}</span></div><strong className="positive">{money(p.amount)}</strong><button className="row-action danger" onClick={()=>removePayment(d,p.id)} aria-label="Remove payment"><X size={13}/></button></div>):<div className="goal-history-empty"><span>No payments recorded yet.</span></div>}</div>}
+    </div>})}</div>:<div className="goal-history-empty"><Users size={20}/><strong>{debts.length?'Nothing matches these filters':'No debts recorded yet'}</strong><span>{debts.length?'Try another filter or switch to All records.':'Add a friend who owes you money, or something you owe, to start tracking.'}</span></div>}</section>
+    {form&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setForm(false)}}><form className="modal enhanced-goal-modal" onSubmit={submit}><div className="modal-head"><div><span className="panel-kicker">KEEP IT CLEAR</span><h2>{edit?'Edit debt':'New debt'}</h2></div><button type="button" className="icon-button" onClick={()=>setForm(false)} aria-label="Close"><X size={18}/></button></div>
+      <div className="type-switch"><button type="button" className={direction==='lent'?'selected income':''} onClick={()=>setDirection('lent')}><ArrowDownRight size={15}/> They owe me</button><button type="button" className={direction==='borrowed'?'selected expense':''} onClick={()=>setDirection('borrowed')}><ArrowUpRight size={15}/> I owe them</button></div>
+      <label>Friend's name<input autoFocus required maxLength={40} value={person} onChange={e=>{setPerson(e.target.value);setFormError('')}} placeholder="e.g. Rani"/></label>
+      <label>Amount (IDR)<input required type="text" inputMode="numeric" maxLength={13} value={formatDigits(amount)} onChange={e=>{setAmount(limitedDigits(e.target.value));setFormError('')}} placeholder="150.000"/></label>
+      <div className="form-row"><label>Date<input type="date" max={today} value={date} onChange={e=>setDate(e.target.value)}/></label><label>Due date <span className="optional">(optional)</span><input type="date" value={due} onChange={e=>setDue(e.target.value)}/></label></div>
+      <label>Notes <span className="optional">(optional)</span><textarea rows={2} maxLength={120} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="e.g. Lunch, concert ticket"/></label>
+      {formError&&<p className="form-error"><AlertTriangle size={14}/>{formError}</p>}
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setForm(false)}>Cancel</button><button type="submit" className="primary-button">Save debt <Check size={15}/></button></div></form></div>}
+    {payDebt&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setPayDebt(null)}}><form className="modal contribution-modal" onSubmit={commitPay}><div className="modal-head"><div><span className="panel-kicker">{payDebt.person}</span><h2>{payDebt.direction==='lent'?'Record a payment received':'Record a payment made'}</h2></div><button type="button" className="icon-button" onClick={()=>setPayDebt(null)} aria-label="Close"><X size={18}/></button></div>
+      <div className="contribution-current"><span>Remaining</span><strong>{money(remainingOf(payDebt))}</strong></div>
+      <label>Amount (IDR)<input autoFocus required type="text" inputMode="numeric" maxLength={13} value={formatDigits(payAmount)} onChange={e=>{setPayAmount(limitedDigits(e.target.value));setPayError('')}} placeholder="50.000"/></label>
+      <button type="button" className="text-link" onClick={()=>{setPayAmount(String(remainingOf(payDebt)));setPayError('')}}>Pay the full remaining amount</button>
+      <label>Date<input type="date" max={today} required value={payDate} onChange={e=>setPayDate(e.target.value)}/></label>
+      <label>Notes <span className="optional">(optional)</span><textarea rows={2} value={payNotes} onChange={e=>setPayNotes(e.target.value)} placeholder="Add a note..."/></label>
+      {payError&&<p className="form-error"><AlertTriangle size={14}/>{payError}</p>}
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={()=>setPayDebt(null)}>Cancel</button><button type="submit" className="primary-button">Confirm <Check size={15}/></button></div></form></div>}
+  </div>
+}
+function RecurringPanel({rules,onAdd,onEdit,onDelete,onToggle}:{rules:Recurring[],onAdd:()=>void,onEdit:(r:Recurring)=>void,onDelete:(id:string)=>void,onToggle:(id:string)=>void}) {
+  const describe=(r:Recurring)=>r.frequency==='weekly'?`Every ${new Date(`${r.startDate}T12:00:00`).toLocaleDateString('en-US',{weekday:'long'})}`:`Monthly on day ${r.day}`
+  return <section className="panel page-enter recurring-panel"><div className="panel-heading"><div><span className="panel-kicker">AUTO-RECORDED</span><h2>Recurring transactions</h2></div><button className="secondary-button" onClick={onAdd}><Plus size={15}/> Add recurring</button></div>
+    {rules.length?<div className="transaction-list">{rules.map(r=>{const next=r.active?nextDueDate(r):'';return <div className="transaction-row" key={r.id} style={r.active?undefined:{opacity:.55}}><div className={`tx-symbol ${r.type}`}><RefreshCw size={15}/></div><div className="tx-main"><strong>{r.name}</strong><span>{describe(r)}<i>·</i>{r.category}<i>·</i>{r.active?(next?`Next ${new Date(`${next}T12:00:00`).toLocaleDateString('en-US',{day:'numeric',month:'short',year:'numeric'})}`:'No upcoming date'):'Paused'}</span></div><strong className={`tx-amount ${r.type}`}>{r.type==='income'?'+':'−'}{money(r.amount)}</strong><button className="row-action" onClick={()=>onToggle(r.id)} aria-label={r.active?'Pause rule':'Resume rule'} title={r.active?'Pause':'Resume'}>{r.active?<X size={14}/>:<Check size={14}/>}</button><button className="row-action" onClick={()=>onEdit(r)} aria-label="Edit rule"><Pencil size={14}/></button><button className="row-action danger" onClick={()=>onDelete(r.id)} aria-label="Delete rule"><Trash2 size={14}/></button></div>})}</div>
+    :<div className="goal-history-empty"><RefreshCw size={20}/><strong>No recurring transactions yet</strong><span>Add rent, subscriptions, or allowance once and MONETRA records them for you.</span></div>}
+  </section>
+}
+function RecurringModal({initial,onClose,onSave}:{initial:Recurring|null,onClose:()=>void,onSave:(r:Recurring)=>void}) {
+  const [name,setName]=useState(initial?.name||''),[amount,setAmount]=useState(initial?String(initial.amount):''),[type,setType]=useState<TxType>(initial?.type||'expense'),[category,setCategory]=useState(initial?.category||'Bills & Utilities'),[frequency,setFrequency]=useState<'weekly'|'monthly'>(initial?.frequency||'monthly'),[startDate,setStartDate]=useState(initial?.startDate||dateISO()),[notes,setNotes]=useState(initial?.notes||''),[error,setError]=useState('')
+  const categories=type==='income'?INCOME_CATEGORIES:EXPENSE_CATEGORIES
+  const switchType=(t:TxType)=>{setType(t);setCategory(t==='income'?'Salary':'Bills & Utilities')}
+  const submit=(e:FormEvent)=>{e.preventDefault();const value=Number(limitedDigits(amount));if(!name.trim()){setError('Please enter a name.');return}if(!value){setError('Amount must be greater than zero.');return}if(!startDate){setError('Please choose the first date.');return}
+    onSave({id:initial?.id||uid(),name:name.trim(),amount:value,type,category,frequency,day:Number(startDate.slice(8,10)),startDate,notes:notes.trim(),active:initial?initial.active:true,lastGenerated:initial?.lastGenerated})}
+  return <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><form className="modal" onSubmit={submit}><div className="modal-head"><div><span className="panel-kicker">RECORD IT ONCE</span><h2>{initial?'Edit recurring transaction':'New recurring transaction'}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button></div>
+    <div className="type-switch"><button type="button" className={type==='expense'?'selected expense':''} onClick={()=>switchType('expense')}><ArrowUpRight size={15}/> Expense</button><button type="button" className={type==='income'?'selected income':''} onClick={()=>switchType('income')}><ArrowDownRight size={15}/> Income</button></div>
+    <label>Name<input autoFocus required maxLength={60} value={name} onChange={e=>{setName(e.target.value);setError('')}} placeholder="e.g. Boarding house rent"/></label>
+    <div className="form-row"><label>Amount (IDR)<input required type="text" inputMode="numeric" maxLength={13} value={formatDigits(amount)} onChange={e=>{setAmount(limitedDigits(e.target.value));setError('')}} placeholder="1.200.000"/></label><label>Category<select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label></div>
+    <div className="form-row"><label>Repeats<select value={frequency} onChange={e=>setFrequency(e.target.value as 'weekly'|'monthly')}><option value="monthly">Every month</option><option value="weekly">Every week</option></select></label><label>First date<input required type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}/></label></div>
+    <label>Notes <span className="optional">(optional)</span><textarea rows={2} maxLength={120} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Add a note..."/></label>
+    {frequency==='monthly'&&Number(startDate.slice(8,10))>28&&<p className="projection-note">On shorter months this is recorded on the last day of the month.</p>}
+    {error&&<p className="form-error"><AlertTriangle size={14}/>{error}</p>}
+    <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button type="submit" className="primary-button">Save rule <Check size={15}/></button></div></form></div>
 }
 function ConfirmModal({title,body,onCancel,onConfirm}:any) { return <div className="modal-backdrop"><div className="modal confirm-modal"><div className="confirm-icon"><AlertTriangle size={20}/></div><h2>{title}</h2><p>{body}</p><div className="modal-actions"><button className="secondary-button" onClick={onCancel}>Keep my data</button><button className="danger-button" onClick={onConfirm}>Clear everything</button></div></div></div> }
