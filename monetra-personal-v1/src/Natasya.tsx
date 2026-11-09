@@ -80,7 +80,10 @@ export function NatasyaChat(props: ChatProps) {
   }, [open, ctx])
 
   // Always scroll to the newest message (also while the typing indicator is visible).
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [msgs, typing, open])
+  useEffect(() => {
+    const body = endRef.current?.parentElement
+    if (body) body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' })
+  }, [msgs, typing, open])
 
   const botReply = (compute: () => BotResult) => {
     cancelPending()                       // a newer message cancels the older pending answer
@@ -138,7 +141,9 @@ export function NatasyaChat(props: ChatProps) {
   const strip = !onlyGreeting && last?.followUps?.length ? last.followUps : null
   const canClear = msgs.length > 1 || typing
 
-  return <aside className="natasya-drawer" aria-label="Natasya">
+  return <>
+    <button className="natasya-backdrop" aria-label={t('n.close')} onClick={onClose} />
+    <aside className="natasya-drawer" aria-label="Natasya">
     <div className="nat-head">
       <div className="nat-avatar">N</div>
       <div><strong>{t('n.title')}</strong><span>{t('n.sub')}</span></div>
@@ -186,6 +191,7 @@ export function NatasyaChat(props: ChatProps) {
     </form>
     <p className="nat-note">{t('n.privacy')}</p>
   </aside>
+  </>
 }
 
 export function NesyNotice({ percent, left, onClose, onChat }: { percent: number; left: string; onClose: () => void; onChat: () => void }) {
