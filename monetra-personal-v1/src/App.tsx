@@ -189,11 +189,14 @@ export default function App() {
   const curUtil = allocated>0 ? curSpent/allocated*100 : 0
   // Nesy Meviani: one budget warning per day once 80% of the budget is used.
   useEffect(()=>{
-    if (curUtil<80) return
-    const k='monetra-nesy-'+dateISO()
-    try { if (window.localStorage.getItem(k)) return; window.localStorage.setItem(k,'1') } catch { /* ignore */ }
+    if (curUtil < 80 || allocated <= 0) return
+    const k = 'monetra-nesy-' + dateISO()
+    try {
+      if (window.localStorage.getItem(k) === '1') return
+      window.localStorage.setItem(k, '1')
+    } catch { /* still show the notice if storage is unavailable */ }
     setNesy(true)
-  },[Math.floor(curUtil/10)])
+  }, [Math.floor(curUtil / 10), allocated])
 
   const addOrUpdate = (tx: Transaction) => {
     setStore((s:any)=>({...s,transactions: editing ? s.transactions.map((t:Transaction)=>t.id===tx.id?tx:t) : [tx,...s.transactions]}))
