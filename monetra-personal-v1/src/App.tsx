@@ -301,7 +301,7 @@ export default function App() {
     {confirmClear&&<ConfirmModal title="Clear all financial data?" body="This permanently removes transactions, budgets, and goals stored in this browser. Export your data first if you need a backup." onCancel={()=>setConfirmClear(false)} onConfirm={()=>{setStore({transactions:[],budgets:[],goals:[],recurring:[],debts:[],currency:'IDR',demo:false});setConfirmClear(false);notify('Local data cleared')}}/>}
     <nav className="bottom-nav" aria-label="Quick navigation">{(['Dashboard','Transactions','Monthly Budget','Savings Goals'] as Page[]).map(p=>{const I=NAV.find(n=>n.label===p)!.icon;return <button key={p} className={page===p?'active':''} onClick={()=>setPage(p)}><I size={18}/><span>{t('nav.'+p)}</span></button>})}</nav>
     {nesy&&<NesyNotice percent={curUtil} left={money(Math.max(0,allocated-curSpent))} onClose={()=>setNesy(false)} onChat={()=>{setNesy(false);setChatOpen(true)}}/>}
-    <NatasyaChat open={chatOpen} onOpen={()=>setChatOpen(true)} onClose={()=>setChatOpen(false)} transactions={transactions} budgets={budgets} month={currentMonth} money={money} expenseCats={EXPENSE_CATEGORIES} incomeCats={INCOME_CATEGORIES} onSave={(tx)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify(t('n.savedToast'))}}/>
+    <NatasyaChat open={chatOpen} onOpen={()=>setChatOpen(true)} onClose={()=>setChatOpen(false)} transactions={transactions} budgets={budgets} goals={goals} debts={debts} month={month} money={money} expenseCats={EXPENSE_CATEGORIES} incomeCats={INCOME_CATEGORIES} onSave={(tx)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify(t('n.savedToast'))}}/>
     {toast&&<div className="toast"><Check size={15}/>{toast}</div>}
   </div>
 }
