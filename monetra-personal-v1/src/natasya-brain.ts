@@ -30,12 +30,16 @@ const pct = (n: number) => `${Math.round(n)}%`
 // ---------------------------------------------------------------- parsing helpers (shared with the chat UI)
 // "25rb" -> 25000, "1,5jt" -> 1500000, "32.000" -> 32000
 export const parseAmount = (text: string): { amount: number; matched: string } | null => {
-  const m = text.match(/(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(rb|ribu|k|jt|juta)?\b/i)
+  // Localized thousands: 4.000 / 4,000 => 4000; decimals: 4,5 => 4.5
+  const m = text.match(/(?<![\w])(?:rp\.?\s*)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)(?:\s*)(rb|ribu|k|jt|juta)?(?!\w)/i)
   if (!m) return null
+  const raw = m[1]
   const unit = (m[2] || '').toLowerCase()
-  let n = /^\d{1,3}([.,]\d{3})+$/.test(m[1]) ? Number(m[1].replace(/[.,]/g, '')) : Number(m[1].replace(',', '.'))
+  const grouped = /^\d{1,3}(?:[.,]\d{3})+$/.test(raw)
+  let n = grouped ? Number(raw.replace(/[.,]/g, '')) : Number(raw.replace(',', '.'))
   if (unit === 'rb' || unit === 'ribu' || unit === 'k') n *= 1000
   else if (unit === 'jt' || unit === 'juta') n *= 1_000_000
+  if (!Number.isFinite(n) || n <= 0) return null
   return { amount: Math.round(n), matched: m[0] }
 }
 const AMT = String.raw`(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(?:rb|ribu|k|jt|juta)?`
