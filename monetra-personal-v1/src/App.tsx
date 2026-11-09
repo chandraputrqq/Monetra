@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { NatasyaChat, NesyNotice } from './Natasya'
+import { t, getLang, setLang } from './i18n'
+import type { Lang } from './i18n'
 import type { ReactNode, FormEvent, ChangeEvent } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -8,7 +11,7 @@ import {
   Target, FileText, Settings, Plus, Search, Bell, ChevronDown, ChevronLeft,
   ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2,
   X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal,
-  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, ScanLine, Camera, ImagePlus, LoaderCircle, ReceiptText, ShieldCheck, RefreshCw, Users
+  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, ScanLine, Camera, ImagePlus, LoaderCircle, ReceiptText, ShieldCheck, RefreshCw, Users, Languages
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -47,7 +50,7 @@ const shortMoney = (n: number) => n >= 1_000_000 ? `Rp${(n/1_000_000).toFixed(1)
 const dateISO = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 const monthKey = (date: string) => date.slice(0,7)
 const currentMonth = dateISO().slice(0,7)
-const monthLabel = (key: string) => new Date(Number(key.slice(0,4)), Number(key.slice(5,7))-1, 1).toLocaleDateString('en-US',{month:'long',year:'numeric'})
+const monthLabel = (key: string) => new Date(Number(key.slice(0,4)), Number(key.slice(5,7))-1, 1).toLocaleDateString(getLang()==='id'?'id-ID':'en-US',{month:'long',year:'numeric'})
 const uid = () => Math.random().toString(36).slice(2,10)
 const readStore = () => {
   try { const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null } catch { return null }
@@ -104,6 +107,10 @@ export default function App() {
   const [recModal,setRecModal] = useState(false)
   const [editingRec,setEditingRec] = useState<Recurring|null>(null)
   const [toast,setToast] = useState('')
+  const [lang,setLangState] = useState<Lang>(getLang())
+  const changeLang = (l:Lang) => { setLang(l); setLangState(l); document.documentElement.lang = l }
+  const [chatOpen,setChatOpen] = useState(false)
+  const [nesy,setNesy] = useState(false)
   const mainRef = useRef<HTMLDivElement>(null)
 
   const transactions: Transaction[] = store.transactions || []
@@ -178,6 +185,15 @@ export default function App() {
   const allocated = budgets.reduce((a,b)=>a+b.limit,0)
   const budgetUsed = expenses
   const utilization = allocated>0 ? budgetUsed/allocated*100 : 0
+  const curSpent = transactions.filter((x:Transaction)=>x.type==='expense'&&monthKey(x.date)===currentMonth).reduce((a:number,x:Transaction)=>a+x.amount,0)
+  const curUtil = allocated>0 ? curSpent/allocated*100 : 0
+  // Nesy Meviani: one budget warning per day once 80% of the budget is used.
+  useEffect(()=>{
+    if (curUtil<80) return
+    const k='monetra-nesy-'+dateISO()
+    try { if (window.localStorage.getItem(k)) return; window.localStorage.setItem(k,'1') } catch { /* ignore */ }
+    setNesy(true)
+  },[Math.floor(curUtil/10)])
 
   const addOrUpdate = (tx: Transaction) => {
     setStore((s:any)=>({...s,transactions: editing ? s.transactions.map((t:Transaction)=>t.id===tx.id?tx:t) : [tx,...s.transactions]}))
@@ -256,17 +272,17 @@ export default function App() {
       case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
       case 'Debts': return <DebtsPage debts={debts} onSave={saveDebt} onDelete={deleteDebt} />
       case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} transactions={monthTx} />
-      case 'Settings': return <SettingsPage store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
+      case 'Settings': return <SettingsPage lang={lang} setLang={changeLang} store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
     }
   }
 
   return <div className="app-shell">
     <aside className={`sidebar ${mobileNav?'sidebar-open':''}`}>
       <div className="brand"><div className="brand-mark"><span /></div><span>monetra</span><small>STUDENT FINANCE</small></div>
-      <div className="workspace-label">WORKSPACE</div>
-      <nav>{NAV.map(({label,icon:Icon})=><button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}}><Icon size={17}/><span>{label}</span>{page===label&&<i/>}</button>)}</nav>
+      <div className="workspace-label">{t('workspace')}</div>
+      <nav>{NAV.map(({label,icon:Icon})=><button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}}><Icon size={17}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>)}</nav>
       <div className="sidebar-bottom">
-        <div className="help-card"><div className="help-icon"><CircleHelp size={16}/></div><strong>Need a hand?</strong><p>Your money, made clearer. Explore the guide in Settings.</p><button onClick={()=>setPage('Settings')}>Explore guide <ArrowUpRight size={13}/></button></div>
+        <div className="help-card"><div className="help-icon"><CircleHelp size={16}/></div><strong>{t('help.title')}</strong><p>{t('help.body')}</p><button onClick={()=>{setChatOpen(true);setMobileNav(false)}}>{t('help.btn')} <ArrowUpRight size={13}/></button></div>
         <div className="profile"><div className="avatar">M</div><div><strong>My workspace</strong><span>Personal account</span></div><MoreHorizontal size={17}/></div>
       </div>
     </aside>
@@ -274,8 +290,8 @@ export default function App() {
     <main className="main-area" ref={mainRef}>
       <header className="topbar">
         <button className="mobile-menu icon-button" onClick={()=>setMobileNav(!mobileNav)} aria-label="Toggle navigation"><Menu size={19}/></button>
-        <div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><strong>{page}</strong></div>
-        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button notification" aria-label="Notifications" onClick={()=>notify('You are all caught up')}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Settings')}><span className="avatar small">M</span><ChevronDown size={14}/></button></div>
+        <div className="breadcrumb"><span>{t('crumb')}</span><span className="crumb-slash">/</span><strong>{t('nav.'+page)}</strong></div>
+        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button notification" aria-label="Notifications" onClick={()=>{ if(curUtil>=80) setNesy(true); else notify(t('caught')) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Settings')}><span className="avatar small">M</span><ChevronDown size={14}/></button></div>
       </header>
       <div className="page-content">{renderPage()}</div>
       <footer className="app-footer"><span>MONETRA <i>·</i> Know your money. Control your future.</span><span>Private on this browser <b>●</b> Saved on this device</span></footer>
@@ -283,6 +299,9 @@ export default function App() {
     {recModal&&<RecurringModal initial={editingRec} onClose={()=>{setRecModal(false);setEditingRec(null)}} onSave={saveRecurring}/>}
     {modal&&<TransactionModal initial={editing} onClose={()=>{setModal(false);setEditing(null)}} onSave={addOrUpdate}/>}
     {confirmClear&&<ConfirmModal title="Clear all financial data?" body="This permanently removes transactions, budgets, and goals stored in this browser. Export your data first if you need a backup." onCancel={()=>setConfirmClear(false)} onConfirm={()=>{setStore({transactions:[],budgets:[],goals:[],recurring:[],debts:[],currency:'IDR',demo:false});setConfirmClear(false);notify('Local data cleared')}}/>}
+    <nav className="bottom-nav" aria-label="Quick navigation">{(['Dashboard','Transactions','Monthly Budget','Savings Goals'] as Page[]).map(p=>{const I=NAV.find(n=>n.label===p)!.icon;return <button key={p} className={page===p?'active':''} onClick={()=>setPage(p)}><I size={18}/><span>{t('nav.'+p)}</span></button>})}</nav>
+    {nesy&&<NesyNotice percent={curUtil} left={money(Math.max(0,allocated-curSpent))} onClose={()=>setNesy(false)} onChat={()=>{setNesy(false);setChatOpen(true)}}/>}
+    <NatasyaChat open={chatOpen} onOpen={()=>setChatOpen(true)} onClose={()=>setChatOpen(false)} transactions={transactions} budgets={budgets} month={currentMonth} money={money} expenseCats={EXPENSE_CATEGORIES} incomeCats={INCOME_CATEGORIES} onSave={(tx)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify(t('n.savedToast'))}}/>
     {toast&&<div className="toast"><Check size={15}/>{toast}</div>}
   </div>
 }
@@ -439,31 +458,31 @@ function ChartTip({active,payload,label}:any) {
 function Dashboard(p:any) {
   const {month,setMonth,income,expenses,balance,savingsRate,totalSaved,utilization,allocated,categoryData,monthlyData,transactions,highestCategory,expenseChange,budgets,onAdd,onNavigate,onEdit}=p
   return <div className="page-stack">
-    <PageHeading eyebrow="YOUR FINANCIAL OVERVIEW" title="Good money habits start here." description="A clear view of your cash flow, spending, and what you're building toward." action={<button className="primary-button" onClick={onAdd}><Plus size={16}/> Add transaction <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
+    <PageHeading eyebrow={t('d.eyebrow')} title={t('d.title')} description={t('d.desc')} action={<button className="primary-button" onClick={onAdd}><Plus size={16}/> {t('add')} <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
     <div className="overview-toolbar"><div className="live-status"><span className="live-dot"/>{transactions.length} records this month</div><MonthControl month={month} setMonth={setMonth}/></div>
     <div className="metric-grid">
-      <Metric label="Total income" value={money(income)} sub="Money received this month" icon={ArrowDownRight} tone="green"/>
-      <Metric label="Total expenses" value={money(expenses)} sub="Money spent this month" icon={ArrowUpRight} tone="amber" trend={expenseChange===null?'':`${expenseChange>=0?'+':''}${expenseChange.toFixed(1)}% vs last month`}/>
-      <Metric label="Remaining balance" value={money(balance)} sub="Income minus expenses" icon={Wallet} tone="mint"/>
-      <Metric label="Total savings" value={money(totalSaved)} sub="Saved across your goals" icon={PiggyBank} tone="blue"/><Metric label="Savings rate" value={`${savingsRate.toFixed(1)}%`} sub="Positive monthly cash flow / income" icon={TrendingUp} tone="mint"/>
+      <Metric label={t('m.income')} value={money(income)} sub={t('m.income.sub')} icon={ArrowDownRight} tone="green"/>
+      <Metric label={t('m.expense')} value={money(expenses)} sub={t('m.expense.sub')} icon={ArrowUpRight} tone="amber" trend={expenseChange===null?'':`${expenseChange>=0?'+':''}${expenseChange.toFixed(1)}% ${t('vsLast')}`}/>
+      <Metric label={t('m.balance')} value={money(balance)} sub={t('m.balance.sub')} icon={Wallet} tone="mint"/>
+      <Metric label={t('m.saved')} value={money(totalSaved)} sub={t('m.saved.sub')} icon={PiggyBank} tone="blue"/><Metric label={t('m.rate')} value={`${savingsRate.toFixed(1)}%`} sub={t('m.rate.sub')} icon={TrendingUp} tone="mint"/>
     </div>
     <div className="dashboard-grid">
-      <section className="panel cashflow-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">CASH FLOW</span><h2>Income vs expenses</h2></div><button className="text-link" onClick={()=>onNavigate('Analytics')}>View analytics <ArrowUpRight size={14}/></button></div>
-        <div className="chart-legend"><span><i className="legend-income"/>Income</span><span><i className="legend-expense"/>Expenses</span></div>
+      <section className="panel cashflow-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{t('p.cash')}</span><h2>{t('p.incexp')}</h2></div><button className="text-link" onClick={()=>onNavigate('Analytics')}>{t('p.viewAn')} <ArrowUpRight size={14}/></button></div>
+        <div className="chart-legend"><span><i className="legend-income"/>{t('income')}</span><span><i className="legend-expense"/>{t('expenses')}</span></div>
         <div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyData} barGap={7}><CartesianGrid stroke="#ffffff0c" vertical={false}/><XAxis dataKey="month" tick={{fill:'#777f77',fontSize:11}} axisLine={false} tickLine={false}/><YAxis tickFormatter={shortMoney} tick={{fill:'#777f77',fontSize:10}} axisLine={false} tickLine={false} width={54}/><Tooltip content={<ChartTip/>} cursor={{fill:'#ffffff08'}}/><Bar dataKey="income" name="Income" fill="#83bd8e" radius={[4,4,0,0]} maxBarSize={18}/><Bar dataKey="expenses" name="Expenses" fill="#c39c67" radius={[4,4,0,0]} maxBarSize={18}/></BarChart></ResponsiveContainer></div>
       </section>
-      <section className="panel spending-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">SPENDING MIX</span><h2>Where it goes</h2></div><button className="icon-button subtle" onClick={()=>onNavigate('Analytics')} aria-label="More analytics"><ArrowUpRight size={16}/></button></div>
+      <section className="panel spending-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{t('p.mix')}</span><h2>{t('p.where')}</h2></div><button className="icon-button subtle" onClick={()=>onNavigate('Analytics')} aria-label="More analytics"><ArrowUpRight size={16}/></button></div>
         {categoryData.length?<><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="name" innerRadius="68%" outerRadius="91%" paddingAngle={3} stroke="none">{categoryData.map((d:any)=><Cell key={d.name} fill={d.color}/>)}</Pie><Tooltip formatter={(v:any)=>money(v)}/></PieChart></ResponsiveContainer><div className="donut-center"><strong>{shortMoney(expenses)}</strong><span>Total spent</span></div></div><div className="category-legend">{categoryData.slice(0,4).map((c:any)=><div key={c.name}><span><i style={{background:c.color}}/>{c.name}</span><strong>{Math.round(c.value/expenses*100)}%</strong></div>)}</div></>:<EmptyChart text="Add expenses to see your spending mix."/>}
       </section>
-      <section className="panel budget-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">MONTHLY PLAN</span><h2>Budget pulse</h2></div><button className="text-link" onClick={()=>onNavigate('Monthly Budget')}>Manage <ArrowUpRight size={14}/></button></div>
+      <section className="panel budget-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{t('p.plan')}</span><h2>{t('p.pulse')}</h2></div><button className="text-link" onClick={()=>onNavigate('Monthly Budget')}>{t('p.manage')} <ArrowUpRight size={14}/></button></div>
         <div className="budget-total"><strong>{money(expenses)}</strong><span>spent {allocated?`of ${money(allocated)}`:'· no budget set'}</span></div>
         <div className="progress-track large"><span style={{width:`${Math.min(utilization,100)}%`}}/></div>
         <div className="budget-caption"><span>{allocated?`${utilization.toFixed(0)}% of total budget used`:'Set category limits to track your budget'}</span><strong>{allocated?money(Math.max(0,allocated-expenses)):'—'}</strong></div>
         <div className="budget-mini-list">{budgets.slice(0,3).map((b: Budget)=>{const spent=transactions.filter((t:Transaction)=>t.type==='expense'&&t.category===b.category).reduce((a:number,t:Transaction)=>a+t.amount,0);const pct=b.limit?spent/b.limit*100:0;return <div className="budget-mini" key={b.category}><div><span>{b.category}</span><strong>{money(spent)} <em>/ {money(b.limit)}</em></strong></div><div className="progress-track"><span className={pct>=100?'over':pct>=70?'warn':''} style={{width:`${Math.min(pct,100)}%`}}/></div></div>})}{!budgets.length&&<p className="muted-note">Your budget starts with one simple limit. Add one in Monthly Budget.</p>}</div>
       </section>
-      <section className="panel insight-panel page-enter"><div className="insight-head"><div className="insight-symbol"><Sparkles size={17}/></div><span className="panel-kicker">A LITTLE CLARITY</span></div><h2>Your money, in perspective.</h2>
+      <section className="panel insight-panel page-enter"><div className="insight-head"><div className="insight-symbol"><Sparkles size={17}/></div><span className="panel-kicker">{t('p.clarity')}</span></div><h2>{t('p.persp')}</h2>
         {transactions.length? <div className="insight-copy">{highestCategory?<p><strong>{highestCategory.name}</strong> is your biggest expense this month at <strong>{money(highestCategory.value)}</strong>.</p>:<p>No expense category has been recorded yet. Add an expense to begin.</p>}{expenseChange!==null&&<p>Spending is <strong>{Math.abs(expenseChange).toFixed(1)}% {expenseChange>=0?'higher':'lower'}</strong> than last month.</p>}<p>Your current cash-flow savings rate is <strong>{savingsRate.toFixed(1)}%</strong>.</p></div>:<p className="muted-note">Insights appear when you have enough real transaction history. Start by recording income and expenses.</p>}
-        <button className="text-link" onClick={()=>onNavigate('Analytics')}>Explore insights <ArrowUpRight size={14}/></button>
+        <button className="text-link" onClick={()=>onNavigate('Analytics')}>{t('p.explore')} <ArrowUpRight size={14}/></button>
       </section>
     </div>
     <section className="panel recent-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">LATEST ACTIVITY</span><h2>Recent transactions</h2></div><button className="text-link" onClick={()=>onNavigate('Transactions')}>All transactions <ArrowUpRight size={14}/></button></div><TransactionRows rows={transactions.slice().sort((a:Transaction,b:Transaction)=>b.date.localeCompare(a.date)).slice(0,5)} onEdit={onEdit}/></section>
@@ -477,7 +496,7 @@ function TransactionRows({rows,onEdit,onDelete}:{rows:Transaction[],onEdit?:(t:T
 function TransactionsPage(p:any) {
   const {rows,query,setQuery,filterType,setFilterType,filterCategory,setFilterCategory,filterMonth,setFilterMonth,onAdd,onEdit,onDelete,onCSV}=p
   const [openFilters,setOpenFilters]=useState(false)
-  return <div className="page-stack"><PageHeading eyebrow="YOUR MONEY MOVEMENT" title="Transactions" description="Every inflow and outflow, in one considered place." action={<button className="primary-button" onClick={onAdd}><Plus size={16}/> Add transaction <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
+  return <div className="page-stack"><PageHeading eyebrow="YOUR MONEY MOVEMENT" title="Transactions" description="Every inflow and outflow, in one considered place." action={<button className="primary-button" onClick={onAdd}><Plus size={16}/> {t('add')} <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
     <section className="panel table-panel page-enter"><div className="table-toolbar"><div className="search-field"><Search size={16}/><input placeholder="Search transactions..." value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button onClick={()=>setQuery('')}><X size={14}/></button>}</div><div className="table-actions"><button className={`secondary-button ${openFilters?'selected':''}`} onClick={()=>setOpenFilters(!openFilters)}><SlidersHorizontal size={15}/> Filters</button><button className="secondary-button" onClick={onCSV}><Download size={15}/> Export CSV</button></div></div>
       {openFilters&&<div className="filter-bar"><select value={filterType} onChange={e=>setFilterType(e.target.value)}><option value="all">All types</option><option value="income">Income</option><option value="expense">Expenses</option></select><select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)}><option value="all">All categories</option>{[...INCOME_CATEGORIES,...EXPENSE_CATEGORIES].map(c=><option key={c}>{c}</option>)}</select><input type="month" value={filterMonth==='all'?'':filterMonth} onChange={e=>setFilterMonth(e.target.value||'all')}/><button className="text-link" onClick={()=>{setFilterType('all');setFilterCategory('all');setFilterMonth('all');setQuery('')}}>Reset filters</button></div>}
       <div className="table-summary"><span>{rows.length} transactions found</span><span>Sorted by most recent</span></div><div className="table-scroll"><table><thead><tr><th>TRANSACTION</th><th>CATEGORY</th><th>DATE</th><th>TYPE</th><th className="align-right">AMOUNT</th><th/></tr></thead><tbody>{rows.map((t:Transaction)=><tr key={t.id}><td><div className="table-name"><div className={`tx-symbol ${t.type}`}>{t.type==='income'?<ArrowDownRight size={15}/>:<ArrowUpRight size={15}/>}</div><div><strong>{t.name}</strong><small>{t.notes||'—'}</small></div></div></td><td>{t.category}</td><td>{new Date(`${t.date}T12:00:00`).toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'numeric'})}</td><td><span className={`type-tag ${t.type}`}>{t.type==='income'?'Income':'Expense'}</span></td><td className={`align-right table-amount ${t.type}`}>{t.type==='income'?'+':'−'}{money(t.amount)}</td><td><div className="table-row-actions"><button onClick={()=>onEdit(t)} aria-label="Edit transaction"><Pencil size={14}/></button><button onClick={()=>onDelete(t.id)} aria-label="Delete transaction"><Trash2 size={14}/></button></div></td></tr>)}</tbody></table>{!rows.length&&<EmptyChart text="No transactions match these filters. Try adjusting your search or add a record."/ >}</div>
@@ -595,17 +614,17 @@ function ReportsPage(p:any) {
   const prev=monthlyData.length>1?monthlyData[monthlyData.length-2]:null
   return <div className="page-stack"><PageHeading eyebrow="A CLEARER MONTH-END" title="Monthly report" description="A concise record of your financial activity, built from the transactions you've entered." action={<MonthControl month={month} setMonth={setMonth}/>}/>
     <section className="report-cover page-enter"><div className="report-cover-top"><div className="brand compact"><div className="brand-mark"><span/></div><span>monetra</span></div><span>MONTHLY FINANCIAL STATEMENT</span></div><h2>{monthLabel(month)}</h2><p>Your money, accounted for.</p><div className="report-cover-bottom"><span>{transactions.length} recorded transactions</span><span>Generated {new Date().toLocaleDateString('en-US')}</span></div></section>
-    <div className="report-metrics"><Metric label="Total income" value={money(income)} sub="Recorded inflows" icon={ArrowDownRight} tone="green"/><Metric label="Total expenses" value={money(expenses)} sub="Recorded outflows" icon={ArrowUpRight} tone="amber"/><Metric label="Net cash flow" value={money(balance)} sub="Income − expenses" icon={Wallet} tone="mint"/><Metric label="Savings rate" value={`${savingsRate.toFixed(1)}%`} sub="Net cash flow / income" icon={PiggyBank} tone="blue"/></div>
+    <div className="report-metrics"><Metric label={t('m.income')} value={money(income)} sub="Recorded inflows" icon={ArrowDownRight} tone="green"/><Metric label={t('m.expense')} value={money(expenses)} sub="Recorded outflows" icon={ArrowUpRight} tone="amber"/><Metric label="Net cash flow" value={money(balance)} sub="Income − expenses" icon={Wallet} tone="mint"/><Metric label={t('m.rate')} value={`${savingsRate.toFixed(1)}%`} sub="Net cash flow / income" icon={PiggyBank} tone="blue"/></div>
     <div className="report-grid"><section className="panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">SPENDING DISTRIBUTION</span><h2>Expense by category</h2></div></div>{categoryData.length?categoryData.map((c:any)=><div className="report-category" key={c.name}><div><span>{c.name}</span><strong>{money(c.value)}</strong></div><div className="progress-track"><span style={{width:`${c.value/expenses*100}%`,background:c.color}}/></div></div>):<EmptyChart text="No expense distribution available yet."/>}</section><section className="panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">MONTH-OVER-MONTH</span><h2>Comparison</h2></div></div>{prev&&prev.expenses>0?<><div className="comparison-line"><span>Expense change vs previous month</span><strong className={expenses<=prev.expenses?'positive':'negative'}>{((expenses-prev.expenses)/prev.expenses*100)>=0?'+':''}{((expenses-prev.expenses)/prev.expenses*100).toFixed(1)}%</strong></div><div className="comparison-line"><span>Previous month expenses</span><strong>{money(prev.expenses)}</strong></div><div className="comparison-line"><span>Current month expenses</span><strong>{money(expenses)}</strong></div></>:<div className="empty-chart"><p>Previous-month expense comparison needs recorded transactions in both periods.</p></div>}</section></div>
     <div className="report-export page-enter"><div><span className="panel-kicker">TAKE YOUR DATA WITH YOU</span><h2>Export your monthly report</h2><p>Download a copy for your own records. Your data stays on this device.</p></div><div className="export-actions"><button className="secondary-button" onClick={onCSV}><Download size={15}/> Export CSV</button><button className="primary-button" onClick={onPDF}><FileText size={15}/> Download PDF <span className="button-arrow"><ArrowUpRight size={14}/></span></button></div></div>
   </div>
 }
-function SettingsPage({store,onDemo,onClear,onImport}:any) {
+function SettingsPage({lang,setLang,store,onDemo,onClear,onImport}:any) {
   const fileRef=useRef<HTMLInputElement>(null)
   const handleFile=(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const parsed=JSON.parse(String(reader.result));if(!parsed||!Array.isArray(parsed.transactions)||!Array.isArray(parsed.budgets)||!Array.isArray(parsed.goals))throw new Error('Invalid format');if(window.confirm('Importing this backup will replace the data currently stored in MONETRA. Continue?'))onImport(parsed)}catch{window.alert('This file is not a valid MONETRA backup.')} };reader.readAsText(file);e.target.value=''}
   const backup=()=>download('monetra-backup.json',JSON.stringify(store,null,2),'application/json')
-  return <div className="page-stack"><PageHeading eyebrow="YOUR SPACE, YOUR RULES" title="Settings" description="Manage your personal data and backups on this device."/>
-    <section className="panel settings-panel page-enter"><div className="settings-section"><div className="settings-icon"><CircleDollarSign size={18}/></div><div className="settings-copy"><h2>Currency & region</h2><p>MONETRA currently formats all financial values in Indonesian Rupiah (IDR).</p><span className="settings-value">IDR <i>·</i> Indonesian Rupiah <i>·</i> Indonesia</span></div></div><div className="settings-section"><div className="settings-icon"><Download size={18}/></div><div className="settings-copy"><h2>Back up your data</h2><p>Export a portable JSON backup of transactions, budgets, savings goals, and debts.</p><button className="secondary-button" onClick={backup}><Download size={15}/> Download backup</button></div></div><div className="settings-section"><div className="settings-icon"><Upload size={18}/></div><div className="settings-copy"><h2>Restore a backup</h2><p>Import a previous MONETRA backup. Existing local data is replaced only after confirmation.</p><input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleFile}/><button className="secondary-button" onClick={()=>fileRef.current?.click()}><Upload size={15}/> Import backup</button></div></div><div className="settings-section"><div className="settings-icon"><Sparkles size={18}/></div><div className="settings-copy"><h2>Explore with demo data</h2><p>Add clearly labeled sample transactions to see how the dashboard and analytics work. Existing records are preserved.</p><button className="secondary-button" onClick={onDemo}><Plus size={15}/> Add demo transactions</button></div></div><div className="settings-section destructive"><div className="settings-icon"><Trash2 size={18}/></div><div className="settings-copy"><h2>Clear local data</h2><p>Remove all transactions, budgets, and goals saved in this browser. This action cannot be undone.</p><button className="danger-button" onClick={onClear}><Trash2 size={15}/> Clear all data</button></div></div></section>
+  return <div className="page-stack"><PageHeading eyebrow={t('s.eyebrow')} title={t('s.title')} description={t('s.desc')}/>
+    <section className="panel settings-panel page-enter"><div className="settings-section"><div className="settings-icon"><Languages size={18}/></div><div className="settings-copy"><h2>{t('s.lang')}</h2><p>{t('s.lang.desc')}</p><div className="lang-switch"><button className={`secondary-button ${lang==='id'?'selected':''}`} aria-pressed={lang==='id'} onClick={()=>setLang('id')}>Bahasa Indonesia</button><button className={`secondary-button ${lang==='en'?'selected':''}`} aria-pressed={lang==='en'} onClick={()=>setLang('en')}>English</button></div></div></div><div className="settings-section"><div className="settings-icon"><CircleDollarSign size={18}/></div><div className="settings-copy"><h2>{t('s.cur')}</h2><p>{t('s.cur.desc')}</p><span className="settings-value">IDR <i>·</i> Indonesian Rupiah <i>·</i> Indonesia</span></div></div><div className="settings-section"><div className="settings-icon"><Download size={18}/></div><div className="settings-copy"><h2>{t('s.bak')}</h2><p>{t('s.bak.desc')}</p><button className="secondary-button" onClick={backup}><Download size={15}/> {t('s.bak.btn')}</button></div></div><div className="settings-section"><div className="settings-icon"><Upload size={18}/></div><div className="settings-copy"><h2>{t('s.res')}</h2><p>{t('s.res.desc')}</p><input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleFile}/><button className="secondary-button" onClick={()=>fileRef.current?.click()}><Upload size={15}/> Import backup</button></div></div><div className="settings-section"><div className="settings-icon"><Sparkles size={18}/></div><div className="settings-copy"><h2>{t('s.demo')}</h2><p>{t('s.demo.desc')}</p><button className="secondary-button" onClick={onDemo}><Plus size={15}/> Add demo transactions</button></div></div><div className="settings-section destructive"><div className="settings-icon"><Trash2 size={18}/></div><div className="settings-copy"><h2>{t('s.clear')}</h2><p>{t('s.clear.desc')}</p><button className="danger-button" onClick={onClear}><Trash2 size={15}/> Clear all data</button></div></div></section>
     <div className="privacy-note page-enter"><div><Check size={17}/></div><p><strong>Your finances stay yours.</strong> MONETRA stores records in this browser only. Data is not sent to a cloud database. Export a JSON backup regularly, especially before clearing browser data or changing devices.</p></div>
   </div>
 }
