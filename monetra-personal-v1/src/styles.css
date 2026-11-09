@@ -118,3 +118,37 @@ td{font-size:12px}th{font-size:10px}.text-link{font-size:12px}.help-card p{font-
   .bottom-nav button.active{color:var(--green)}
   .page-content{padding-bottom:96px}.natasya-fab{bottom:76px;right:16px}.nesy-notice{top:66px;right:12px}.toast{bottom:76px}
 }
+
+/* ---- Natasya v2: smoother chat, typing indicator, quick suggestions, clear chat ---- */
+.nat-head .nat-clear{margin-left:auto}.nat-head .nat-clear+.icon-button{margin-left:0}
+.nat-head .nat-clear:disabled{opacity:.35;cursor:default}
+.nat-msg{max-width:92%;line-height:1.6;animation:nat-msg-in .42s cubic-bezier(.22,.8,.3,1) both;overflow-wrap:anywhere}
+.nat-msg.bot{border:1px solid #ffffff0d}
+.nat-msg strong{font-weight:600;color:#f1f6ee}.nat-msg.me strong{color:#fff}
+.nat-line{animation:nat-line-in .45s ease both}
+.nat-gap{height:8px}
+@keyframes nat-msg-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes nat-line-in{from{opacity:0}to{opacity:1}}
+.nat-typing{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.nat-dots{display:inline-flex;gap:4px;align-items:center}
+.nat-dots i{width:6px;height:6px;border-radius:50%;background:var(--green);opacity:.35;animation:nat-dot 1.2s ease-in-out infinite}
+.nat-dots i:nth-child(2){animation-delay:.18s}.nat-dots i:nth-child(3){animation-delay:.36s}
+@keyframes nat-dot{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:1;transform:translateY(-4px)}}
+.nat-typing-text{font-size:12px;color:var(--muted)}
+.nat-quick{display:grid;grid-template-columns:1fr 1fr;gap:8px;animation:nat-msg-in .5s .15s cubic-bezier(.22,.8,.3,1) both}
+.nat-quick button{display:flex;gap:8px;align-items:flex-start;text-align:left;border:1px solid #ffffff1a;background:#151915;color:#d4ddd1;border-radius:12px;padding:10px 11px;font-size:12.5px;line-height:1.35;transition:background .2s,border-color .2s,transform .2s}
+.nat-quick button span{font-size:15px;line-height:1.1}
+.nat-quick button:hover{background:#1b211b;border-color:#9bd6a547;transform:translateY(-1px)}
+.nat-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:10px}
+.nat-chips::-webkit-scrollbar{display:none}
+.nat-chips button{flex:none;white-space:nowrap;transition:background .2s}
+.nat-form button:disabled{opacity:.4;cursor:default}
+.nat-confirm{margin:12px 16px 0;padding:14px;border:1px solid #ffffff1f;border-radius:14px;background:#171c17;display:grid;gap:12px;animation:nat-msg-in .25s ease both}
+.nat-confirm strong{font-size:14px}.nat-confirm p{margin:4px 0 0;font-size:12.5px;line-height:1.5;color:var(--soft)}
+.nat-confirm .nat-actions button{height:38px}
+.nat-teaser{position:fixed;right:24px;bottom:92px;z-index:59;max-width:min(300px,calc(100vw - 48px));text-align:left;display:grid;gap:3px;padding:12px 14px;border-radius:16px 16px 4px 16px;border:1px solid #9bd6a54d;background:#1a211b;color:#d4ddd1;box-shadow:0 14px 40px #000a;animation:nat-msg-in .5s cubic-bezier(.22,.8,.3,1) both}
+.nat-teaser strong{font-size:12px;color:var(--green);font-weight:600}.nat-teaser span{font-size:13px;line-height:1.45}
+.natasya-fab{position:fixed}.nat-dot{position:absolute;top:10px;right:10px;width:10px;height:10px;border-radius:50%;background:#ffb454;border:2px solid #142017}
+.natasya-fab{overflow:visible}
+@media(max-width:650px){.nat-teaser{right:16px;bottom:144px}.nat-quick{grid-template-columns:1fr}.natasya-drawer{width:100vw}}
+@media(prefers-reduced-motion:reduce){.nat-msg,.nat-line,.nat-quick,.nat-teaser,.nat-confirm{animation:none}.nat-dots i{animation:none;opacity:.7}}
