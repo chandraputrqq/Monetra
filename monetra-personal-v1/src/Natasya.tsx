@@ -22,7 +22,7 @@ const RichText = ({ text }: { text: string }) => <>{text.split('\n').map((line, 
 
 type ChatProps = {
   open: boolean; onClose: () => void; onOpen: () => void
-  transactions: Tx[]; budgets: Budget[]; goals: GoalLite[]; debts: DebtLite[]; month: string
+  transactions: Tx[]; budgets: Budget[]; goals?: GoalLite[]; debts?: DebtLite[]; month: string
   money: (n: number) => string
   expenseCats: string[]; incomeCats: string[]
   onSave: (tx: Tx) => void
@@ -44,7 +44,7 @@ export function NatasyaChat(props: ChatProps) {
 
   const ctx = useCallback(() => {
     const p = propsRef.current
-    return { transactions: p.transactions, budgets: p.budgets, goals: p.goals, debts: p.debts, month: p.month, today: todayIso(), money: p.money, expenseCats: p.expenseCats, incomeCats: p.incomeCats }
+    return { transactions: p.transactions, budgets: p.budgets, goals: p.goals || [], debts: p.debts || [], month: p.month, today: todayIso(), money: p.money, expenseCats: p.expenseCats, incomeCats: p.incomeCats }
   }, [])
 
   const cancelPending = useCallback(() => {
