@@ -152,3 +152,18 @@ td{font-size:12px}th{font-size:10px}.text-link{font-size:12px}.help-card p{font-
 .natasya-fab{overflow:visible}
 @media(max-width:650px){.nat-teaser{right:16px;bottom:144px}.nat-quick{grid-template-columns:1fr}.natasya-drawer{width:100vw}}
 @media(prefers-reduced-motion:reduce){.nat-msg,.nat-line,.nat-quick,.nat-teaser,.nat-confirm{animation:none}.nat-dots i{animation:none;opacity:.7}}
+
+
+/* MONETRA v3 usability fixes */
+.natasya-backdrop{position:fixed;inset:0;z-index:89;border:0;padding:0;background:rgba(5,8,6,.42);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);opacity:0;animation:nat-backdrop-in .28s ease forwards}
+@keyframes nat-backdrop-in{to{opacity:1}}
+.natasya-drawer{z-index:90;max-height:100dvh;min-height:0;overscroll-behavior:contain}
+.nat-head,.nat-form,.nat-note,.nat-chips{flex-shrink:0}
+.nat-body{min-height:0;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#526b55 transparent}
+.nat-chips{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;max-width:100%;scrollbar-width:thin;scrollbar-color:#526b55 transparent;-webkit-overflow-scrolling:touch;touch-action:pan-x;padding-bottom:10px;scroll-snap-type:x proximity}
+.nat-chips button{flex:0 0 auto;white-space:nowrap;scroll-snap-align:start}
+.nat-chips::-webkit-scrollbar{height:5px}.nat-chips::-webkit-scrollbar-thumb{background:#526b55;border-radius:8px}
+.sidebar{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.sidebar nav{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.main-area{min-width:0;min-height:100vh}.page-content{min-width:0;overflow-x:hidden}
+@media(max-width:650px){.natasya-backdrop{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}.natasya-drawer{height:100dvh;bottom:0}.nat-chips{scrollbar-width:none}.nat-chips::-webkit-scrollbar{display:none}}
