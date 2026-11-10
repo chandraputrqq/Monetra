@@ -8,6 +8,7 @@ import type { BotResult, Budget, DebtLite, Draft, GoalLite, Tx } from './natasya
 type Msg = { id: number; from: 'bot' | 'me'; text?: string; draft?: Draft; status?: 'pending' | 'saved' | 'cancelled'; followUps?: string[] }
 
 const QUICK: { icon: string; key: string }[] = [
+  { icon: '👋', key: 'n.q9' }, { icon: '✨', key: 'n.q10' },
   { icon: '💡', key: 'n.q1' }, { icon: '📊', key: 'n.q2' }, { icon: '💰', key: 'n.q3' }, { icon: '🎯', key: 'n.q4' },
   { icon: '⚠️', key: 'n.q5' }, { icon: '📅', key: 'n.q6' }, { icon: '📉', key: 'n.q7' }, { icon: '❓', key: 'n.q8' }
 ]
@@ -230,6 +231,25 @@ export function ReminderNotice({ percent, left, onClose, onChat }: { percent: nu
       <strong>{t('rem.title')}</strong> <small>{t('rem.when')}</small>
       <p>{over ? t('rem.over', { pct: Math.round(percent) }) : t('rem.warn', { pct: Math.round(percent), left })}</p>
       <button className="text-link" onClick={onChat}>{t('rem.btn')}</button>
+    </div>
+    <button className="icon-button" onClick={onClose} aria-label={t('n.close')}><X size={16} /></button>
+  </div>
+}
+
+// Reminder per jam: kata-kata semangat dari Natasya.
+export function QuoteNotice({ text, onClose, onChat }: { text: string; onClose: () => void; onChat: () => void }) {
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    const id = window.setTimeout(() => closeRef.current(), 20000)
+    return () => window.clearTimeout(id)
+  }, [text])
+  return <div className="reminder-notice quote" role="status">
+    <div className="reminder-avatar">N</div>
+    <div className="reminder-copy">
+      <strong>{t('rem.title')}</strong> <small>{t('rem.when')}</small>
+      <p>{text}</p>
+      <button className="text-link" onClick={onChat}>{t('rem.hi')}</button>
     </div>
     <button className="icon-button" onClick={onClose} aria-label={t('n.close')}><X size={16} /></button>
   </div>
