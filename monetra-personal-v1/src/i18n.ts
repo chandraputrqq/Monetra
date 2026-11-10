@@ -1,7 +1,7 @@
 export type Lang = 'id' | 'en'
 const D: Record<Lang, Record<string, string>> = {
   id: {
-    'nav.Dashboard':'Dasbor','nav.Smart Scanner':'Pemindai Pintar','nav.Transactions':'Transaksi','nav.Monthly Budget':'Anggaran Bulanan','nav.Analytics':'Analitik','nav.Financial Calendar':'Kalender Keuangan','nav.Savings Goals':'Target Tabungan','nav.Debts':'Utang','nav.Monthly Reports':'Laporan Bulanan','nav.Settings':'Pengaturan',
+    'nav.Dashboard':'Dasbor','nav.Smart Scanner':'Pemindai Pintar','nav.Transactions':'Transaksi','nav.Monthly Budget':'Anggaran Bulanan','nav.Analytics':'Analitik','nav.Financial Calendar':'Kalender Keuangan','nav.Savings Goals':'Target Tabungan','nav.Debts':'Utang','nav.Monthly Reports':'Laporan Bulanan','nav.Profile':'Profil Hewan','nav.Settings':'Pengaturan',
     'workspace':'RUANG KERJA','crumb':'Ruang kerja','caught':'Semua sudah terbaca',
     'help.title':'Tanya Natasya','help.body':'Catat pengeluaran atau tanya keuanganmu lewat chat.','help.btn':'Buka chat',
     'd.eyebrow':'GAMBARAN KEUANGANMU','d.title':'Kebiasaan uang yang baik dimulai di sini.','d.desc':'Gambaran jelas arus kas, pengeluaran, dan apa yang sedang kamu bangun.','add':'Tambah transaksi',
@@ -17,7 +17,7 @@ const D: Record<Lang, Record<string, string>> = {
     'rem.title':'Reminder','rem.when':'Natasya · baru saja','rem.hi':'Sapa Natasya 👋','rem.warn':'Hari ini kamu sudah memakai {pct}% dari anggaran. Sisa {left}, yuk tahan dulu jajannya.','rem.over':'Pengeluaranmu sudah melewati anggaran ({pct}%). Yuk cek lagi pengeluaranmu.','rem.btn':'Tanya Natasya'
   },
   en: {
-    'nav.Dashboard':'Dashboard','nav.Smart Scanner':'Smart Scanner','nav.Transactions':'Transactions','nav.Monthly Budget':'Monthly Budget','nav.Analytics':'Analytics','nav.Financial Calendar':'Financial Calendar','nav.Savings Goals':'Savings Goals','nav.Debts':'Debts','nav.Monthly Reports':'Monthly Reports','nav.Settings':'Settings',
+    'nav.Dashboard':'Dashboard','nav.Smart Scanner':'Smart Scanner','nav.Transactions':'Transactions','nav.Monthly Budget':'Monthly Budget','nav.Analytics':'Analytics','nav.Financial Calendar':'Financial Calendar','nav.Savings Goals':'Savings Goals','nav.Debts':'Debts','nav.Monthly Reports':'Monthly Reports','nav.Profile':'Animal Profile','nav.Settings':'Settings',
     'workspace':'WORKSPACE','crumb':'Workspace','caught':'You are all caught up',
     'help.title':'Ask Natasya','help.body':'Log expenses or ask about your money in chat.','help.btn':'Open chat',
     'd.eyebrow':'YOUR FINANCIAL OVERVIEW','d.title':'Good money habits start here.','d.desc':"A clear view of your cash flow, spending, and what you're building toward.",'add':'Add transaction',
@@ -457,6 +457,8 @@ export const getLang = (): Lang => cur
 export const setLang = (l: Lang) => { cur = l; try { localStorage.setItem('monetra-lang', l) } catch { /* ignore */ } }
 export const t = (key: string, vars?: Record<string, string | number>): string => {
   let s = D[cur][key] ?? D.en[key] ?? key
+  // Jangan pernah tampilkan kunci mentah seperti "nav.Profile" ke pengguna.
+  if (s === key && key.startsWith('nav.')) s = key === 'nav.Profile' ? (cur === 'id' ? 'Profil Hewan' : 'Animal Profile') : key.slice(4)
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v))
   return s
 }
