@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NatasyaChat, ReminderNotice, QuoteNotice } from './Natasya'
 import { pickQuote } from './reminders'
+import { useCloudSync, CloudPanel } from './CloudSync'
 import { t, tr, getLang, setLang } from './i18n'
 import type { Lang } from './i18n'
 import type { ReactNode, FormEvent, ChangeEvent } from 'react'
@@ -94,6 +95,7 @@ const download = (name: string, content: string, type: string) => {
 
 export default function App() {
   const [store,setStore] = useState<any>(initialData)
+  const cloud = useCloudSync(store,setStore)
   const [page,setPage] = useState<Page>('Dashboard')
   const [month,setMonth] = useState(currentMonth)
   const [modal,setModal] = useState(false)
@@ -292,7 +294,7 @@ export default function App() {
       case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
       case 'Debts': return <DebtsPage debts={debts} onSave={saveDebt} onDelete={deleteDebt} />
       case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} transactions={monthTx} />
-      case 'Settings': return <SettingsPage lang={lang} setLang={changeLang} store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
+      case 'Settings': return <SettingsPage cloud={cloud} lang={lang} setLang={changeLang} store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
     }
   }
 
@@ -639,13 +641,14 @@ function ReportsPage(p:any) {
     <div className="report-export page-enter"><div><span className="panel-kicker">{tr("TAKE YOUR DATA WITH YOU")}</span><h2>{tr("Export your monthly report")}</h2><p>{tr("Download a copy for your own records. Your data stays on this device.")}</p></div><div className="export-actions"><button className="secondary-button" onClick={onCSV}><Download size={15}/> {tr("Export CSV")}</button><button className="primary-button" onClick={onPDF}><FileText size={15}/> {tr("Download PDF")} <span className="button-arrow"><ArrowUpRight size={14}/></span></button></div></div>
   </div>
 }
-function SettingsPage({lang,setLang,store,onDemo,onClear,onImport}:any) {
+function SettingsPage({cloud,lang,setLang,store,onDemo,onClear,onImport}:any) {
   const fileRef=useRef<HTMLInputElement>(null)
   const handleFile=(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const parsed=JSON.parse(String(reader.result));if(!parsed||!Array.isArray(parsed.transactions)||!Array.isArray(parsed.budgets)||!Array.isArray(parsed.goals))throw new Error(tr("Invalid format"));if(window.confirm(tr("Importing this backup will replace the data currently stored in MONETRA. Continue?")))onImport(parsed)}catch{window.alert(tr("This file is not a valid MONETRA backup."))} };reader.readAsText(file);e.target.value=''}
   const backup=()=>download('monetra-backup.json',JSON.stringify(store,null,2),'application/json')
   return <div className="page-stack"><PageHeading eyebrow={t('s.eyebrow')} title={t('s.title')} description={t('s.desc')}/>
     <section className="panel settings-panel page-enter"><div className="settings-section"><div className="settings-icon"><Languages size={18}/></div><div className="settings-copy"><h2>{t('s.lang')}</h2><p>{t('s.lang.desc')}</p><div className="lang-switch"><button className={`secondary-button ${lang==='id'?'selected':''}`} aria-pressed={lang==='id'} onClick={()=>setLang('id')}>Bahasa Indonesia</button><button className={`secondary-button ${lang==='en'?'selected':''}`} aria-pressed={lang==='en'} onClick={()=>setLang('en')}>English</button></div></div></div><div className="settings-section"><div className="settings-icon"><CircleDollarSign size={18}/></div><div className="settings-copy"><h2>{t('s.cur')}</h2><p>{t('s.cur.desc')}</p><span className="settings-value">IDR <i>·</i> {tr("Indonesian Rupiah")} <i>·</i> Indonesia</span></div></div><div className="settings-section"><div className="settings-icon"><Download size={18}/></div><div className="settings-copy"><h2>{t('s.bak')}</h2><p>{t('s.bak.desc')}</p><button className="secondary-button" onClick={backup}><Download size={15}/> {t('s.bak.btn')}</button></div></div><div className="settings-section"><div className="settings-icon"><Upload size={18}/></div><div className="settings-copy"><h2>{t('s.res')}</h2><p>{t('s.res.desc')}</p><input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleFile}/><button className="secondary-button" onClick={()=>fileRef.current?.click()}><Upload size={15}/> {tr("Import backup")}</button></div></div><div className="settings-section"><div className="settings-icon"><Sparkles size={18}/></div><div className="settings-copy"><h2>{t('s.demo')}</h2><p>{t('s.demo.desc')}</p><button className="secondary-button" onClick={onDemo}><Plus size={15}/> {tr("Add demo transactions")}</button></div></div><div className="settings-section destructive"><div className="settings-icon"><Trash2 size={18}/></div><div className="settings-copy"><h2>{t('s.clear')}</h2><p>{t('s.clear.desc')}</p><button className="danger-button" onClick={onClear}><Trash2 size={15}/> {tr("Clear all data")}</button></div></div></section>
-    <div className="privacy-note page-enter"><div><Check size={17}/></div><p><strong>{tr("Your finances stay yours.")}</strong> {tr("MONETRA stores records in this browser only. Data is not sent to a cloud database. Export a JSON backup regularly, especially before clearing browser data or changing devices.")}</p></div>
+    <CloudPanel cloud={cloud}/>
+    {cloud?.user?<div className="privacy-note page-enter"><div><Check size={17}/></div><p><strong>{tr("Your finances stay yours.")}</strong> {getLang()==='id'?'Selama kamu masuk, datamu disimpan di database Supabase milikmu dan hanya bisa dibaca akunmu sendiri. Tetap ekspor cadangan JSON secara berkala.':'While signed in, your data is stored in your own Supabase database and readable only by your account. Still export a JSON backup regularly.'}</p></div>:<div className="privacy-note page-enter"><div><Check size={17}/></div><p><strong>{tr("Your finances stay yours.")}</strong> {tr("MONETRA stores records in this browser only. Data is not sent to a cloud database. Export a JSON backup regularly, especially before clearing browser data or changing devices.")}</p></div>}
   </div>
 }
 function TransactionModal({initial,onClose,onSave}:{initial:Transaction|null,onClose:()=>void,onSave:(t:Transaction)=>void}) {
