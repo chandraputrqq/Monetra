@@ -215,3 +215,37 @@ html.chat-open .toast{display:none}
 .cloud-badge.synced{background:#9bd6a51c;color:#9bd6a5}.cloud-badge.syncing{background:#c4a46a1c;color:#d1b77e}.cloud-badge.error{background:#d18b7e1c;color:#e3a096}
 .cloud-msg{font-size:12px!important;margin:6px 0 0!important}.cloud-msg.ok{color:#9bd6a5!important}.cloud-msg.err{color:#e3a096!important}
 .cloud-note{font-size:11px!important;color:#778474!important;margin-top:12px!important}
+
+/* Profil Hewan Keuangan */
+.pf-avatar{display:inline-grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 30% 25%,#ffffff14,#ffffff05),#1d231e;line-height:1;flex:none;user-select:none}
+.pf-frame-ring{box-shadow:0 0 0 2px var(--pf-accent)}
+.pf-frame-glow{box-shadow:0 0 0 1.5px var(--pf-accent),0 0 18px 2px color-mix(in srgb,var(--pf-accent) 55%,transparent)}
+.pf-frame-none{box-shadow:none}
+.pf-hero{display:flex;align-items:center;gap:26px;padding:26px 28px;background:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--pf-accent) 22%,transparent),transparent 55%),linear-gradient(130deg,#1d251e,#171a17)}
+.pf-hero-main{flex:1;min-width:0;display:grid;gap:5px}
+.pf-hero-main h2{font-size:24px;margin:2px 0 0;letter-spacing:-.4px;overflow-wrap:anywhere}
+.pf-title{color:var(--pf-accent);font-weight:500;font-size:14px}
+.pf-motto{margin:2px 0 6px;color:var(--soft);font-size:13px;font-style:italic;overflow-wrap:anywhere}
+.pf-level{display:grid;gap:6px;max-width:340px}.pf-level>span{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--soft)}.pf-level small{font-size:10px;color:var(--muted)}
+.pf-health{display:grid;gap:3px;text-align:center;padding:14px 20px;border:1px solid var(--line);border-radius:10px;background:#ffffff06;min-width:130px}
+.pf-health strong{font-size:38px;line-height:1;font-weight:500;color:var(--pf-accent);font-variant-numeric:tabular-nums}.pf-health small{font-size:11px;color:var(--soft)}
+.pf-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:13px}
+.pf-read,.pf-match,.pf-custom,.pf-catalog{padding:20px}
+.pf-trait{font-size:14px;line-height:1.7;color:var(--soft);margin:0 0 14px}
+.pf-points{display:grid;gap:10px}.pf-points>div{padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:#ffffff05}
+.pf-points span{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--green)}.pf-points .warn span{color:var(--amber)}.pf-points .tip span{color:#8fc4e4}
+.pf-points p{margin:5px 0 0;font-size:13px;line-height:1.6;color:var(--soft)}
+.pf-note,.pf-alerts p{display:flex;gap:7px;align-items:flex-start;font-size:12px;line-height:1.55;color:var(--soft);margin:12px 0 0}
+.pf-alerts p{color:var(--amber)}
+.pf-bars{display:grid;gap:11px;margin-bottom:16px}.pf-bars>div{display:grid;grid-template-columns:110px 1fr 40px;align-items:center;gap:10px;font-size:12px}.pf-bars strong{font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+.pf-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pf-metrics>div{padding:10px 12px;border:1px solid var(--line);border-radius:8px;display:grid;gap:3px}.pf-metrics small{font-size:10px;color:var(--muted)}.pf-metrics strong{font-size:16px;font-weight:500}
+.pf-custom{display:grid;gap:16px}.pf-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.pf-label{font-size:12px;color:var(--soft);min-width:110px}
+.pf-swatches{display:flex;gap:9px}.pf-swatches button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;padding:0}.pf-swatches button.on{border-color:#fff;box-shadow:0 0 0 2px #0b0d0b inset}
+.pf-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.pf-card{position:relative;text-align:left;color:inherit;display:grid;gap:4px;padding:15px;border:1px solid var(--line);border-radius:10px;background:#ffffff05;transition:border-color .2s,transform .2s,background .2s}
+.pf-card:hover{border-color:#9bd6a54d;transform:translateY(-2px)}.pf-card.active{border-color:var(--green);background:#9bd6a512}
+.pf-card-emoji{font-size:30px;line-height:1.1}.pf-card strong{font-size:14px;font-weight:500}.pf-card em{font-style:normal;font-size:11px;color:var(--green)}.pf-card small{font-size:11px;line-height:1.5;color:var(--muted);margin-top:3px}
+.pf-badge{position:absolute;top:10px;right:10px;font-style:normal;font-size:9px;padding:3px 7px;border-radius:20px;background:#9bd6a51f;color:#b7e0bd}
+.sidebar-bottom .profile{cursor:pointer}.profile .pf-avatar{width:30px;height:30px}
+@media(max-width:900px){.pf-grid{grid-template-columns:1fr}.pf-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.pf-hero{flex-direction:column;align-items:flex-start;padding:20px}.pf-health{width:100%}.pf-cards{grid-template-columns:1fr}.pf-bars>div{grid-template-columns:96px 1fr 38px}}
