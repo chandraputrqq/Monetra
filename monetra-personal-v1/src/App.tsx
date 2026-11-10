@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { NatasyaChat, ReminderNotice, QuoteNotice } from './Natasya'
 import { pickQuote } from './reminders'
 import { useCloudSync, CloudPanel } from './CloudSync'
-import { ProfilePage, AnimalAvatar, analyze, resolveAnimal, DEFAULT_PROFILE } from './Profile'
+import { ProfilePage, AnimalAvatar, analyze, resolveAnimal, DEFAULT_PROFILE, ANIMALS } from './Profile'
 import type { ProfilePrefs } from './Profile'
 import { t, tr, getLang, setLang } from './i18n'
 import type { Lang } from './i18n'
@@ -140,9 +140,11 @@ export default function App() {
   const goals: Goal[] = store.goals || []
   const recurring: Recurring[] = store.recurring || []
   const debts: Debt[] = store.debts || []
-  const rawProfile: ProfilePrefs = { ...DEFAULT_PROFILE, ...(store.profile || {}) }
-  const profilePrefs: ProfilePrefs = { ...rawProfile, accent: /^#[0-9a-fA-F]{6}$/.test(rawProfile.accent) ? rawProfile.accent : DEFAULT_PROFILE.accent }
-  const analysis = useMemo(()=>analyze(transactions,budgets,goals,debts,month),[transactions,budgets,goals,debts,month])
+  const sp:any = store.profile || {}
+  const profilePrefs: ProfilePrefs = {
+    name: typeof sp.name==='string'?sp.name:DEFAULT_PROFILE.name, motto: typeof sp.motto==='string'?sp.motto:DEFAULT_PROFILE.motto,
+    mode: sp.mode==='manual'?'manual':'auto', animal: ANIMALS.some(a=>a.key===sp.animal)?sp.animal:DEFAULT_PROFILE.animal,
+    accent: /^#[0-9a-fA-F]{6}$/.test(sp.accent)?sp.accent:DEFAULT_PROFILE.accent, frame: ['ring','glow','none'].includes(sp.frame)?sp.frame:DEFAULT_PROFILE.frame }
   const myAnimal = resolveAnimal(profilePrefs,analysis)
   const saveProfile = (p:ProfilePrefs) => setStore((s:any)=>({...s,profile:p}))
 
