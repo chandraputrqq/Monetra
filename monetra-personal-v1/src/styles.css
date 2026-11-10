@@ -193,3 +193,13 @@ html.chat-open .toast{display:none}
 .debts-overview .goal-overview-card>strong{font-size:clamp(17px,1.9vw,24px)}
 .debts-overview .goal-overview-card>small{line-height:1.5;min-height:2.6em}
 @media(max-width:720px){.debts-overview{grid-template-columns:1fr}.debts-overview .goal-overview-card>small{min-height:0}}
+
+/* ===== v5: reminder Natasya yang lebih hidup ===== */
+.sidebar-bottom .profile{border-top:1px solid var(--line)}
+.reminder-notice.quote{background:linear-gradient(135deg,#1d2c21,#18211b 70%);border-color:#9bd6a566;overflow:hidden;padding-bottom:17px}
+.reminder-notice.quote .reminder-avatar{background:linear-gradient(135deg,#3b9a6e,#2f7a58);box-shadow:0 0 0 4px #9bd6a51f;animation:rem-pulse 2.4s ease-in-out infinite}
+.reminder-notice.quote .reminder-copy p{font-size:14px;line-height:1.6;color:#e2eadf}
+.reminder-notice.quote::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,#6cae7a,#9bd6a5);transform-origin:left;animation:rem-timer 20s linear forwards}
+@keyframes rem-timer{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes rem-pulse{0%,100%{box-shadow:0 0 0 4px #9bd6a51f}50%{box-shadow:0 0 0 8px #9bd6a50a}}
+@media(prefers-reduced-motion:reduce){.reminder-notice.quote::after,.reminder-notice.quote .reminder-avatar{animation:none}}
