@@ -145,6 +145,7 @@ export default function App() {
     name: typeof sp.name==='string'?sp.name:DEFAULT_PROFILE.name, motto: typeof sp.motto==='string'?sp.motto:DEFAULT_PROFILE.motto,
     mode: sp.mode==='manual'?'manual':'auto', animal: ANIMALS.some(a=>a.key===sp.animal)?sp.animal:DEFAULT_PROFILE.animal,
     accent: /^#[0-9a-fA-F]{6}$/.test(sp.accent)?sp.accent:DEFAULT_PROFILE.accent, frame: ['ring','glow','none'].includes(sp.frame)?sp.frame:DEFAULT_PROFILE.frame }
+  const analysis = useMemo(()=>analyze(transactions,budgets,goals,debts,month),[transactions,budgets,goals,debts,month])
   const myAnimal = resolveAnimal(profilePrefs,analysis)
   const saveProfile = (p:ProfilePrefs) => setStore((s:any)=>({...s,profile:p}))
 
