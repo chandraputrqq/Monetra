@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { NatasyaChat, ReminderNotice, QuoteNotice } from './Natasya'
 import { pickQuote } from './reminders'
 import { useCloudSync, CloudPanel } from './CloudSync'
+import { ProfilePage, AnimalAvatar, analyze, resolveAnimal, DEFAULT_PROFILE } from './Profile'
+import type { ProfilePrefs } from './Profile'
 import { t, tr, getLang, setLang } from './i18n'
 import type { Lang } from './i18n'
 import type { ReactNode, FormEvent, ChangeEvent } from 'react'
@@ -13,7 +15,7 @@ import {
   Target, FileText, Settings, Plus, Search, Bell, ChevronDown, ChevronLeft,
   ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2,
   X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal,
-  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, ScanLine, Camera, ImagePlus, LoaderCircle, ReceiptText, ShieldCheck, RefreshCw, Users, Languages
+  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, ScanLine, Camera, ImagePlus, LoaderCircle, ReceiptText, ShieldCheck, RefreshCw, Users, Languages, PawPrint
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -30,7 +32,7 @@ type GoalContribution = { id:string; type:'deposit'|'withdrawal'; amount:number;
 type Goal = { id:string; name:string; target:number; saved:number; date:string; category?:string; description?:string; priority?:'Low'|'Medium'|'High'; paused?:boolean; completed?:boolean; contributions?:GoalContribution[] }
 type DebtPayment = { id: string; amount: number; date: string; notes?: string }
 type Debt = { id: string; person: string; direction: 'lent' | 'borrowed'; amount: number; date: string; due?: string; notes?: string; payments: DebtPayment[] }
-type Page = 'Dashboard' | 'Smart Scanner' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Settings'
+type Page = 'Dashboard' | 'Smart Scanner' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Profile' | 'Settings'
 
 const EXPENSE_CATEGORIES = ['Food & Beverages','Transportation','Shopping','Entertainment','Education','Bills & Utilities','Health','Housing','Subscriptions','Other']
 const INCOME_CATEGORIES = ['Salary','Business','Freelance','Investment Returns','Other Income']
@@ -38,7 +40,7 @@ const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
   { label:'Dashboard', icon:LayoutDashboard }, { label:'Smart Scanner', icon:ScanLine }, { label:'Transactions', icon:ArrowLeftRight },
   { label:'Monthly Budget', icon:Wallet }, { label:'Analytics', icon:ChartNoAxesCombined },
   { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target }, { label:'Debts', icon:Users },
-  { label:'Monthly Reports', icon:FileText }, { label:'Settings', icon:Settings }
+  { label:'Monthly Reports', icon:FileText }, { label:'Profile', icon:PawPrint }, { label:'Settings', icon:Settings }
 ]
 const COLORS = ['#9bd6a5','#6cae7a','#4e8960','#c4a46a','#839b91','#71877d','#b4c6b7','#8d9c73','#9d826c','#718b9a']
 const KEY = 'monetra-v1'
@@ -137,6 +139,10 @@ export default function App() {
   const goals: Goal[] = store.goals || []
   const recurring: Recurring[] = store.recurring || []
   const debts: Debt[] = store.debts || []
+  const profilePrefs: ProfilePrefs = { ...DEFAULT_PROFILE, ...(store.profile || {}) }
+  const analysis = useMemo(()=>analyze(transactions,budgets,goals,debts,month),[transactions,budgets,goals,debts,month])
+  const myAnimal = resolveAnimal(profilePrefs,analysis)
+  const saveProfile = (p:ProfilePrefs) => setStore((s:any)=>({...s,profile:p}))
 
   // Personal mode: persist all records in this browser only. No account or cloud connection.
   useEffect(()=>{
@@ -294,6 +300,7 @@ export default function App() {
       case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
       case 'Debts': return <DebtsPage debts={debts} onSave={saveDebt} onDelete={deleteDebt} />
       case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} transactions={monthTx} />
+      case 'Profile': return <ProfilePage analysis={analysis} prefs={profilePrefs} onChange={saveProfile} txCount={transactions.length} />
       case 'Settings': return <SettingsPage cloud={cloud} lang={lang} setLang={changeLang} store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
     }
   }
@@ -304,7 +311,7 @@ export default function App() {
       <div className="workspace-label">{t('workspace')}</div>
       <nav>{NAV.map(({label,icon:Icon})=><button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}}><Icon size={17}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>)}</nav>
       <div className="sidebar-bottom">
-        <div className="profile"><div className="avatar">M</div><div><strong>{tr("My workspace")}</strong><span>{tr("Personal account")}</span></div><MoreHorizontal size={17}/></div>
+        <div className="profile" role="button" tabIndex={0} onClick={()=>{setPage('Profile');setMobileNav(false)}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){setPage('Profile');setMobileNav(false)}}}><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={30}/><div><strong>{profilePrefs.name.trim()||tr("My workspace")}</strong><span>{myAnimal.emoji} {getLang()==='id'?myAnimal.name[0]:myAnimal.name[1]}</span></div><MoreHorizontal size={17}/></div>
       </div>
     </aside>
     {mobileNav&&<button className="mobile-scrim" onClick={()=>setMobileNav(false)} aria-label={tr("Close menu")}/>}
@@ -312,14 +319,14 @@ export default function App() {
       <header className="topbar">
         <button className="mobile-menu icon-button" onClick={()=>setMobileNav(!mobileNav)} aria-label={tr("Toggle navigation")}><Menu size={19}/></button>
         <div className="breadcrumb"><span>{t('crumb')}</span><span className="crumb-slash">/</span><strong>{t('nav.'+page)}</strong></div>
-        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Settings')}><span className="avatar small">M</span><ChevronDown size={14}/></button></div>
+        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Profile')} aria-label="Profile"><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={26}/><ChevronDown size={14}/></button></div>
       </header>
       <div className="page-content">{renderPage()}</div>
       <footer className="app-footer"><span>MONETRA <i>·</i> {tr("Know your money. Control your future.")}</span><span>{tr("Private on this browser")} <b>●</b> {tr("Saved on this device")}</span></footer>
     </main>
     {recModal&&<RecurringModal initial={editingRec} onClose={()=>{setRecModal(false);setEditingRec(null)}} onSave={saveRecurring}/>}
     {modal&&<TransactionModal initial={editing} onClose={()=>{setModal(false);setEditing(null)}} onSave={addOrUpdate}/>}
-    {confirmClear&&<ConfirmModal title={tr("Clear all financial data?")} body={tr("This permanently removes transactions, budgets, and goals stored in this browser. Export your data first if you need a backup.")} onCancel={()=>setConfirmClear(false)} onConfirm={()=>{setStore({transactions:[],budgets:[],goals:[],recurring:[],debts:[],currency:'IDR',demo:false});setConfirmClear(false);notify(tr("Local data cleared"))}}/>}
+    {confirmClear&&<ConfirmModal title={tr("Clear all financial data?")} body={tr("This permanently removes transactions, budgets, and goals stored in this browser. Export your data first if you need a backup.")} onCancel={()=>setConfirmClear(false)} onConfirm={()=>{setStore({transactions:[],budgets:[],goals:[],recurring:[],debts:[],profile:store.profile,currency:'IDR',demo:false});setConfirmClear(false);notify(tr("Local data cleared"))}}/>}
     <nav className="bottom-nav" aria-label={tr("Quick navigation")}>{(['Dashboard','Transactions','Monthly Budget','Savings Goals'] as Page[]).map(p=>{const I=NAV.find(n=>n.label===p)!.icon;return <button key={p} className={page===p?'active':''} onClick={()=>setPage(p)}><I size={18}/><span>{t('nav.'+p)}</span></button>})}</nav>
     {quote&&!reminder&&!chatOpen&&<QuoteNotice key={quote} text={quote} onClose={()=>setQuote(null)} onChat={()=>{setQuote(null);setChatOpen(true)}}/>}
     {reminder&&<ReminderNotice percent={curUtil} left={money(Math.max(0,allocated-curSpent))} onClose={()=>setReminder(false)} onChat={()=>{setReminder(false);setChatOpen(true)}}/>}
