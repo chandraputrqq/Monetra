@@ -203,3 +203,15 @@ html.chat-open .toast{display:none}
 @keyframes rem-timer{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 @keyframes rem-pulse{0%,100%{box-shadow:0 0 0 4px #9bd6a51f}50%{box-shadow:0 0 0 8px #9bd6a50a}}
 @media(prefers-reduced-motion:reduce){.reminder-notice.quote::after,.reminder-notice.quote .reminder-avatar{animation:none}}
+
+/* ===== v6: akun & sinkronisasi cloud (Supabase) ===== */
+.cloud-form{display:grid;gap:10px;max-width:400px;margin-top:6px}
+.cloud-form input{height:42px;background:#0b0d0b;border:1px solid #ffffff1c;border-radius:10px;padding:0 13px;color:#e8ece5;font-size:13px}
+.cloud-form input:focus{outline:0;border-color:#83bd8e;box-shadow:0 0 0 2px #83bd8e26}
+.cloud-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.cloud-actions button:disabled{opacity:.45;cursor:not-allowed}
+.cloud-status{display:flex;align-items:center;gap:10px;margin:2px 0 8px}.cloud-status small{font-size:11px;color:var(--muted)}
+.cloud-badge{font-size:11px;padding:4px 9px;border-radius:20px;background:#ffffff0d;color:#b0b8ad}
+.cloud-badge.synced{background:#9bd6a51c;color:#9bd6a5}.cloud-badge.syncing{background:#c4a46a1c;color:#d1b77e}.cloud-badge.error{background:#d18b7e1c;color:#e3a096}
+.cloud-msg{font-size:12px!important;margin:6px 0 0!important}.cloud-msg.ok{color:#9bd6a5!important}.cloud-msg.err{color:#e3a096!important}
+.cloud-note{font-size:11px!important;color:#778474!important;margin-top:12px!important}
