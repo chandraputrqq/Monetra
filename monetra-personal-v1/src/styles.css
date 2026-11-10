@@ -249,3 +249,15 @@ html.chat-open .toast{display:none}
 .sidebar-bottom .profile{cursor:pointer}.profile .pf-avatar{width:30px;height:30px}
 @media(max-width:900px){.pf-grid{grid-template-columns:1fr}.pf-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.pf-hero{flex-direction:column;align-items:flex-start;padding:20px}.pf-health{width:100%}.pf-cards{grid-template-columns:1fr}.pf-bars>div{grid-template-columns:96px 1fr 38px}}
+
+/* ---- Profil Hewan: form mengikuti tema Monetra (sebelumnya input jatuh ke putih bawaan browser) ---- */
+:root{color-scheme:dark}
+.pf-custom .form-row label{display:grid;gap:7px;color:var(--soft);font-size:12px}
+.pf-custom input{width:100%;min-width:0;height:42px;background:#111511;border:1px solid #ffffff1c;border-radius:8px;padding:0 13px;color:#e8ece5;font-size:13px;caret-color:var(--green);transition:border-color .2s,box-shadow .2s}
+.pf-custom input::placeholder{color:#596356}
+.pf-custom input:hover{border-color:#ffffff30}
+.pf-custom input:focus{outline:0;border-color:#83bd8e;box-shadow:0 0 0 2px #83bd8e26}
+.pf-custom input:-webkit-autofill{-webkit-text-fill-color:#e8ece5;box-shadow:0 0 0 40px #111511 inset}
+/* Emoji hewan selalu berwarna & tidak ikut warna teks */
+.pf-avatar,.pf-card-emoji{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;color:initial}
+.nav-item.active span{color:#b7e0bd}
