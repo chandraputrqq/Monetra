@@ -219,12 +219,12 @@ html.chat-open .toast{display:none}
 /* Profil Hewan Keuangan */
 .pf-avatar{display:inline-grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 30% 25%,#ffffff14,#ffffff05),#1d231e;line-height:1;flex:none;user-select:none}
 .pf-frame-ring{box-shadow:0 0 0 2px var(--pf-accent)}
-.pf-frame-glow{box-shadow:0 0 0 1.5px var(--pf-accent),0 0 18px 2px color-mix(in srgb,var(--pf-accent) 55%,transparent)}
+.pf-frame-glow{box-shadow:0 0 0 1.5px var(--pf-accent),0 0 18px 2px var(--pf-glow,#9bd6a58c)}
 .pf-frame-none{box-shadow:none}
-.pf-hero{display:flex;align-items:center;gap:26px;padding:26px 28px;background:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--pf-accent) 22%,transparent),transparent 55%),linear-gradient(130deg,#1d251e,#171a17)}
+.pf-hero{display:flex;align-items:center;gap:26px;padding:26px 28px;background-color:#171a17;background-image:linear-gradient(130deg,#1d251e,#171a17)}
 .pf-hero-main{flex:1;min-width:0;display:grid;gap:5px}
 .pf-hero-main h2{font-size:24px;margin:2px 0 0;letter-spacing:-.4px;overflow-wrap:anywhere}
-.pf-title{color:var(--pf-accent);font-weight:500;font-size:14px}
+.pf-title{color:var(--pf-accent,#9bd6a5);font-weight:500;font-size:14px}
 .pf-motto{margin:2px 0 6px;color:var(--soft);font-size:13px;font-style:italic;overflow-wrap:anywhere}
 .pf-level{display:grid;gap:6px;max-width:340px}.pf-level>span{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--soft)}.pf-level small{font-size:10px;color:var(--muted)}
 .pf-health{display:grid;gap:3px;text-align:center;padding:14px 20px;border:1px solid var(--line);border-radius:10px;background:#ffffff06;min-width:130px}
