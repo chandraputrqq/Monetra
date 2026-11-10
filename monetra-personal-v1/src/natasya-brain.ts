@@ -1,6 +1,7 @@
 // Natasya's brain: a local, rule-based financial analyst. No network, no external AI.
 // Everything is derived from the MONETRA app state that is passed in (transactions, budgets, goals, debts).
 import { getLang } from './i18n'
+import { pickQuote } from './reminders'
 
 export type TxType = 'income' | 'expense'
 export type Tx = { id: string; name: string; amount: number; type: TxType; category: string; date: string; notes?: string; recurringId?: string }
@@ -621,11 +622,36 @@ function savingTips(c: Ctx): BotResult {
 // ---------------------------------------------------------------- the router
 const QUESTION = /\?|\b(apa|apakah|bagaimana|gimana|berapa|kapan|kenapa|mengapa|bisakah|bolehkah|how|what|when|why|can i|should|is my|do i)\b/i
 
+const GREET = /^(hai|halo|hallo|hi|hello|hey|hei|hola|selamat (pagi|siang|sore|malam)|assalamu'?alaikum|pagi|siang|sore|malam)\b/
+const MOTIVATE = /(semangat|motivasi|inspirasi|kata.?kata|quotes?\b|motivat|inspire|cheer|romantis|romantic|gombal)/
 export function answerQuestion(c: Ctx, raw: string): BotResult {
   const q = raw.trim(), l = q.toLowerCase()
   const amt = parseAmount(q)
 
-  if (/^(hai|halo|hi|hello|hey|pagi|siang|sore|malam)\b/.test(l) && q.length < 20) return { text: tr('Halo! Ada yang bisa kubantu soal keuanganmu hari ini?', 'Hello! How can I help with your finances today?'), followUps: [tr('Berikan saran keuangan saya', 'Give me financial advice'), tr('Panduan fitur MONETRA', 'MONETRA feature guide')] }
+  if (GREET.test(l) && q.length < 32) {
+    const h = new Date().getHours()
+    const tod = h < 11 ? tr('pagi', 'morning') : h < 15 ? tr('siang', 'afternoon') : h < 18 ? tr('sore', 'evening') : tr('malam', 'night')
+    const id = [
+      `Hai juga! 👋 Selamat ${tod}! Aku Natasya. Senang banget kamu menyapaku.`,
+      `Halo, ${tod}! ✨ Natasya siap menemanimu ngurus keuangan hari ini.`,
+      `Heiii, kamu datang! 💚 Selamat ${tod}. Mau cek anggaran atau catat pengeluaran?`,
+      `Hai! 🌷 Selamat ${tod}. Aku lagi nungguin kamu lho. Ada cerita keuangan apa hari ini?`,
+      `Hola! 😄 Selamat ${tod}. Yuk, bikin hari ini lebih hemat dan lebih happy bareng aku.`
+    ]
+    const en = [
+      `Hi there! 👋 Good ${tod}! I am Natasya. So happy you said hello.`,
+      `Hello, good ${tod}! ✨ Natasya is ready to help with your money today.`,
+      `Heyyy, you are here! 💚 Good ${tod}. Want to check your budget or log an expense?`,
+      `Hi! 🌷 Good ${tod}. I was waiting for you. Any money stories today?`,
+      `Hola! 😄 Good ${tod}. Let us make today thriftier and happier together.`
+    ]
+    const pool = getLang() === 'id' ? id : en
+    return { text: pool[Math.floor(Math.random() * pool.length)] + '\n\n✨ ' + pickQuote(), followUps: [tr('Beri aku semangat!', 'Cheer me on!'), tr('Berikan saran keuangan saya', 'Give me financial advice'), tr('Panduan fitur MONETRA', 'MONETRA feature guide')] }
+  }
+  if (MOTIVATE.test(l)) {
+    const kind = /romantis|romantic|gombal|sayang/.test(l) ? 'romantic' : undefined
+    return { text: '✨ ' + pickQuote(kind), followUps: [tr('Beri aku semangat lagi!', 'Cheer me on again!'), tr('Kata-kata romantis dong', 'Something romantic please'), tr('Sisa saldo', 'Remaining balance')] }
+  }
   if (/^(terima kasih|makasih|thanks|thank you|thx)/.test(l)) return { text: tr('Sama-sama! Senang bisa membantu 😊', 'You are welcome! Happy to help 😊') }
   if (/(hapus|bersihkan|clear|reset|delete).{0,10}(chat|percakapan|obrolan)/.test(l)) return { text: tr('Untuk menghapus percakapan, tekan ikon tempat sampah di kanan atas chat ini. Transaksi yang sudah tersimpan tidak ikut terhapus.', 'To clear the conversation, press the trash icon at the top right of this chat. Saved transactions are not affected.') }
 
