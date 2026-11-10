@@ -98,7 +98,8 @@ const download = (name: string, content: string, type: string) => {
 export default function App() {
   const [store,setStore] = useState<any>(initialData)
   const cloud = useCloudSync(store,setStore)
-  const [page,setPage] = useState<Page>('Dashboard')
+  const [page,setPageState] = useState<Page>(()=>{try{const v=localStorage.getItem('monetra-page') as Page|null;return v&&NAV.some(n=>n.label===v)?v:'Dashboard'}catch{return 'Dashboard'}})
+  const setPage = (p:Page)=>{setPageState(p);try{localStorage.setItem('monetra-page',p)}catch{/* ignore */}}
   const [month,setMonth] = useState(currentMonth)
   const [modal,setModal] = useState(false)
   const [editing,setEditing] = useState<Transaction|null>(null)
@@ -139,7 +140,8 @@ export default function App() {
   const goals: Goal[] = store.goals || []
   const recurring: Recurring[] = store.recurring || []
   const debts: Debt[] = store.debts || []
-  const profilePrefs: ProfilePrefs = { ...DEFAULT_PROFILE, ...(store.profile || {}) }
+  const rawProfile: ProfilePrefs = { ...DEFAULT_PROFILE, ...(store.profile || {}) }
+  const profilePrefs: ProfilePrefs = { ...rawProfile, accent: /^#[0-9a-fA-F]{6}$/.test(rawProfile.accent) ? rawProfile.accent : DEFAULT_PROFILE.accent }
   const analysis = useMemo(()=>analyze(transactions,budgets,goals,debts,month),[transactions,budgets,goals,debts,month])
   const myAnimal = resolveAnimal(profilePrefs,analysis)
   const saveProfile = (p:ProfilePrefs) => setStore((s:any)=>({...s,profile:p}))
