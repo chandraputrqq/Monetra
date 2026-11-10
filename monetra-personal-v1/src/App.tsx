@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { NatasyaChat, ReminderNotice } from './Natasya'
+import { NatasyaChat, ReminderNotice, QuoteNotice } from './Natasya'
+import { pickQuote } from './reminders'
 import { t, tr, getLang, setLang } from './i18n'
 import type { Lang } from './i18n'
 import type { ReactNode, FormEvent, ChangeEvent } from 'react'
@@ -111,6 +112,22 @@ export default function App() {
   const changeLang = (l:Lang) => { setLang(l); setLangState(l); document.documentElement.lang = l }
   const [chatOpen,setChatOpen] = useState(false)
   const [reminder,setReminder] = useState(false)
+  const [quote,setQuote] = useState<string|null>(null)
+  const guardRef = useRef({chat:false,budget:false})
+  guardRef.current = {chat:chatOpen,budget:reminder}
+  // Reminder semangat dari Natasya: acak, paling sering sekali tiap 1 jam.
+  useEffect(()=>{
+    const KEY='monetra-quote-last', HOUR=3600000
+    const tick=()=>{
+      if (document.hidden || guardRef.current.chat || guardRef.current.budget) return
+      let last=0; try{ last=Number(window.localStorage.getItem(KEY))||0 }catch{ /* ignore */ }
+      if (Date.now()-last<HOUR) return
+      try{ window.localStorage.setItem(KEY,String(Date.now())) }catch{ /* ignore */ }
+      setQuote(pickQuote())
+    }
+    const first=window.setTimeout(tick,6000), iv=window.setInterval(tick,60000)
+    return ()=>{ window.clearTimeout(first); window.clearInterval(iv) }
+  },[])
   const mainRef = useRef<HTMLDivElement>(null)
 
   const transactions: Transaction[] = store.transactions || []
@@ -285,7 +302,6 @@ export default function App() {
       <div className="workspace-label">{t('workspace')}</div>
       <nav>{NAV.map(({label,icon:Icon})=><button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}}><Icon size={17}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>)}</nav>
       <div className="sidebar-bottom">
-        <div className="help-card"><div className="help-icon"><CircleHelp size={16}/></div><strong>{t('help.title')}</strong><p>{t('help.body')}</p><button onClick={()=>{setChatOpen(true);setMobileNav(false)}}>{t('help.btn')} <ArrowUpRight size={13}/></button></div>
         <div className="profile"><div className="avatar">M</div><div><strong>{tr("My workspace")}</strong><span>{tr("Personal account")}</span></div><MoreHorizontal size={17}/></div>
       </div>
     </aside>
@@ -294,7 +310,7 @@ export default function App() {
       <header className="topbar">
         <button className="mobile-menu icon-button" onClick={()=>setMobileNav(!mobileNav)} aria-label={tr("Toggle navigation")}><Menu size={19}/></button>
         <div className="breadcrumb"><span>{t('crumb')}</span><span className="crumb-slash">/</span><strong>{t('nav.'+page)}</strong></div>
-        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else notify(t('caught')) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Settings')}><span className="avatar small">M</span><ChevronDown size={14}/></button></div>
+        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Settings')}><span className="avatar small">M</span><ChevronDown size={14}/></button></div>
       </header>
       <div className="page-content">{renderPage()}</div>
       <footer className="app-footer"><span>MONETRA <i>·</i> {tr("Know your money. Control your future.")}</span><span>{tr("Private on this browser")} <b>●</b> {tr("Saved on this device")}</span></footer>
@@ -303,6 +319,7 @@ export default function App() {
     {modal&&<TransactionModal initial={editing} onClose={()=>{setModal(false);setEditing(null)}} onSave={addOrUpdate}/>}
     {confirmClear&&<ConfirmModal title={tr("Clear all financial data?")} body={tr("This permanently removes transactions, budgets, and goals stored in this browser. Export your data first if you need a backup.")} onCancel={()=>setConfirmClear(false)} onConfirm={()=>{setStore({transactions:[],budgets:[],goals:[],recurring:[],debts:[],currency:'IDR',demo:false});setConfirmClear(false);notify(tr("Local data cleared"))}}/>}
     <nav className="bottom-nav" aria-label={tr("Quick navigation")}>{(['Dashboard','Transactions','Monthly Budget','Savings Goals'] as Page[]).map(p=>{const I=NAV.find(n=>n.label===p)!.icon;return <button key={p} className={page===p?'active':''} onClick={()=>setPage(p)}><I size={18}/><span>{t('nav.'+p)}</span></button>})}</nav>
+    {quote&&!reminder&&!chatOpen&&<QuoteNotice key={quote} text={quote} onClose={()=>setQuote(null)} onChat={()=>{setQuote(null);setChatOpen(true)}}/>}
     {reminder&&<ReminderNotice percent={curUtil} left={money(Math.max(0,allocated-curSpent))} onClose={()=>setReminder(false)} onChat={()=>{setReminder(false);setChatOpen(true)}}/>}
     <NatasyaChat open={chatOpen} onOpen={()=>setChatOpen(true)} onClose={()=>setChatOpen(false)} transactions={transactions} budgets={budgets} goals={goals} debts={debts} month={month} money={money} expenseCats={EXPENSE_CATEGORIES} incomeCats={INCOME_CATEGORIES} onSave={(tx)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify(t('n.savedToast'))}}/>
     {toast&&<div className="toast"><Check size={15}/>{toast}</div>}
