@@ -157,7 +157,7 @@ export function analyze(transactions: Tx[], budgets: Bud[], goals: GoalLite[], d
 export const resolveAnimal = (prefs: ProfilePrefs | undefined, a: Analysis): Animal => animalOf((prefs?.mode === 'manual' ? prefs.animal : a.key) || a.key)
 
 export function AnimalAvatar({ animal, accent, frame = 'ring', size = 30 }: { animal: Animal; accent: string; frame?: ProfilePrefs['frame']; size?: number }) {
-  return <span className={`pf-avatar pf-frame-${frame}`} style={{ width: size, height: size, fontSize: size * 0.56, ['--pf-accent' as string]: accent }} aria-hidden="true">{animal.emoji}</span>
+  return <span className={`pf-avatar pf-frame-${frame}`} style={{ width: size, height: size, fontSize: size * 0.56, ['--pf-accent' as string]: accent, ['--pf-glow' as string]: `${accent}8c` }} aria-hidden="true">{animal.emoji}</span>
 }
 
 const ACCENTS = ['#9bd6a5', '#c4a46a', '#88a9b8', '#d18b7e', '#b79fd8', '#e0c36a']
@@ -181,16 +181,16 @@ export function ProfilePage({ analysis: a, prefs, onChange, txCount }: PageProps
   return <div className="page-stack pf-page">
     <div className="page-heading page-enter"><div><div className="eyebrow"><span />{L('KEPRIBADIAN KEUANGAN', 'MONEY PERSONALITY')}</div><h1>{L('Profil Hewan Keuangan', 'Money Animal Profile')}</h1><p>{L('Hewan pendampingmu dibaca dari kebiasaan uangmu yang nyata, lalu bisa kamu kustomisasi.', 'Your companion animal is read from your real money habits, then fully customisable.')}</p></div></div>
 
-    <section className="panel pf-hero page-enter" style={{ ['--pf-accent' as string]: prefs.accent }}>
+    <section className="panel pf-hero page-enter" style={{ ['--pf-accent' as string]: prefs.accent, backgroundColor: '#171a17', backgroundImage: `radial-gradient(ellipse at 90% 0%, ${prefs.accent}38, transparent 55%), linear-gradient(130deg, #1d251e, #171a17)` }}>
       <AnimalAvatar animal={animal} accent={prefs.accent} frame={prefs.frame} size={104} />
       <div className="pf-hero-main">
         <span className="panel-kicker">{pick(animal.name).toUpperCase()} · {prefs.mode === 'auto' ? L('OTOMATIS', 'AUTO') : L('PILIHANMU', 'YOUR PICK')}</span>
         <h2>{prefs.name.trim() || L('Pemilik Monetra', 'Monetra Owner')}</h2>
-        <strong className="pf-title">{pick(animal.title)}</strong>
+        <strong className="pf-title" style={{ color: prefs.accent }}>{pick(animal.title)}</strong>
         <p className="pf-motto">{prefs.motto.trim() ? `“${prefs.motto.trim()}”` : L('Tambahkan motto keuanganmu di bawah.', 'Add your money motto below.')}</p>
         <div className="pf-level"><span><Flame size={13} /> {L('Level', 'Level')} {a.level + 1} · {pick(a.levelName)}</span><div className="progress-track"><span style={{ width: `${xpPct}%` }} /></div><small>{a.xp} XP{a.xpTo > a.xpFrom ? ` / ${a.xpTo}` : ` · ${L('maksimal', 'max')}`}</small></div>
       </div>
-      <div className="pf-health"><span className="panel-kicker">{L('SKOR KESEHATAN', 'HEALTH SCORE')}</span><strong>{a.health}</strong><small>{pick(healthLabel(a.health))}</small></div>
+      <div className="pf-health"><span className="panel-kicker">{L('SKOR KESEHATAN', 'HEALTH SCORE')}</span><strong style={{ color: prefs.accent }}>{a.health}</strong><small>{pick(healthLabel(a.health))}</small></div>
     </section>
 
     <div className="pf-grid">
