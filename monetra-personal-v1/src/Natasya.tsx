@@ -58,6 +58,28 @@ export function NatasyaChat(props: ChatProps) {
   // Closing the chat cancels any answer that is still "being typed".
   useEffect(() => { if (!open) { cancelPending(); setConfirmClear(false) } }, [open, cancelPending])
 
+  // Fokus ke chat: halaman di belakang tidak bisa di-scroll/diklik selama chat terbuka.
+  useEffect(() => {
+    if (!open) return
+    const root = document.documentElement
+    const gap = window.innerWidth - root.clientWidth
+    const prevOverflow = root.style.overflow, prevPad = document.body.style.paddingRight
+    root.style.overflow = 'hidden'
+    if (gap > 0) document.body.style.paddingRight = gap + 'px'
+    root.classList.add('chat-open')
+    const bg = Array.from(document.querySelectorAll<HTMLElement>('.sidebar, .main-area, .bottom-nav'))
+    bg.forEach(el => el.setAttribute('inert', ''))
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') propsRef.current.onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      root.style.overflow = prevOverflow
+      document.body.style.paddingRight = prevPad
+      root.classList.remove('chat-open')
+      bg.forEach(el => el.removeAttribute('inert'))
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   // Opening: greeting with today's insight (also after Clear chat).
   useEffect(() => {
     if (open && msgs.length === 0) setMsgs([{ id: idRef.current++, from: 'bot', text: greeting(ctx()) }])
@@ -194,7 +216,7 @@ export function NatasyaChat(props: ChatProps) {
   </>
 }
 
-export function NesyNotice({ percent, left, onClose, onChat }: { percent: number; left: string; onClose: () => void; onChat: () => void }) {
+export function ReminderNotice({ percent, left, onClose, onChat }: { percent: number; left: string; onClose: () => void; onChat: () => void }) {
   const closeRef = useRef(onClose)
   closeRef.current = onClose
   useEffect(() => {
@@ -202,12 +224,12 @@ export function NesyNotice({ percent, left, onClose, onChat }: { percent: number
     return () => window.clearTimeout(id)
   }, [])
   const over = percent >= 100
-  return <div className="nesy-notice" role="status">
-    <div className="nesy-avatar">N</div>
-    <div className="nesy-copy">
-      <strong>Nesy Meviani</strong> <small>{t('nesy.when')}</small>
-      <p>{over ? t('nesy.over', { pct: Math.round(percent) }) : t('nesy.warn', { pct: Math.round(percent), left })}</p>
-      <button className="text-link" onClick={onChat}>{t('nesy.btn')}</button>
+  return <div className="reminder-notice" role="status">
+    <div className="reminder-avatar">N</div>
+    <div className="reminder-copy">
+      <strong>{t('rem.title')}</strong> <small>{t('rem.when')}</small>
+      <p>{over ? t('rem.over', { pct: Math.round(percent) }) : t('rem.warn', { pct: Math.round(percent), left })}</p>
+      <button className="text-link" onClick={onChat}>{t('rem.btn')}</button>
     </div>
     <button className="icon-button" onClick={onClose} aria-label={t('n.close')}><X size={16} /></button>
   </div>
