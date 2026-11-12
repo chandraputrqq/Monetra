@@ -15,7 +15,7 @@ import {
   Target, FileText, Settings, Plus, Search, Bell, ChevronDown, ChevronLeft,
   ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2,
   X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal,
-  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, ScanLine, Camera, ImagePlus, LoaderCircle, ReceiptText, ShieldCheck, RefreshCw, Users, Languages, PawPrint,
+  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, RefreshCw, Users, Languages, PawPrint,
   UtensilsCrossed, Car, ShoppingBag, Clapperboard, GraduationCap, Zap, HeartPulse, Home, Repeat, Shapes
 } from 'lucide-react'
 import {
@@ -33,12 +33,12 @@ type GoalContribution = { id:string; type:'deposit'|'withdrawal'; amount:number;
 type Goal = { id:string; name:string; target:number; saved:number; date:string; category?:string; description?:string; priority?:'Low'|'Medium'|'High'; paused?:boolean; completed?:boolean; contributions?:GoalContribution[] }
 type DebtPayment = { id: string; amount: number; date: string; notes?: string }
 type Debt = { id: string; person: string; direction: 'lent' | 'borrowed'; amount: number; date: string; due?: string; notes?: string; payments: DebtPayment[] }
-type Page = 'Dashboard' | 'Smart Scanner' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Profile' | 'Settings'
+type Page = 'Dashboard' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Profile' | 'Settings'
 
 const EXPENSE_CATEGORIES = ['Food & Beverages','Transportation','Shopping','Entertainment','Education','Bills & Utilities','Health','Housing','Subscriptions','Other']
 const INCOME_CATEGORIES = ['Salary','Business','Freelance','Investment Returns','Other Income']
 const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
-  { label:'Dashboard', icon:LayoutDashboard }, { label:'Smart Scanner', icon:ScanLine }, { label:'Transactions', icon:ArrowLeftRight },
+  { label:'Dashboard', icon:LayoutDashboard }, { label:'Transactions', icon:ArrowLeftRight },
   { label:'Monthly Budget', icon:Wallet }, { label:'Analytics', icon:ChartNoAxesCombined },
   { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target }, { label:'Debts', icon:Users },
   { label:'Monthly Reports', icon:FileText }, { label:'Profile', icon:PawPrint }, { label:'Settings', icon:Settings }
@@ -46,7 +46,7 @@ const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
 // Menu dikelompokkan; semua halaman lama tetap ada. Label grup memakai kunci i18n 'grp.*'.
 const NAV_GROUPS: { key: string; items: Page[] }[] = [
   { key:'grp.overview', items:['Dashboard'] },
-  { key:'grp.finance', items:['Transactions','Smart Scanner','Monthly Budget','Savings Goals','Debts'] },
+  { key:'grp.finance', items:['Transactions','Monthly Budget','Savings Goals','Debts'] },
   { key:'grp.analysis', items:['Analytics','Financial Calendar','Monthly Reports'] },
   { key:'grp.account', items:['Profile','Settings'] }
 ]
@@ -315,7 +315,6 @@ export default function App() {
   const renderPage = () => {
     switch(page) {
       case 'Dashboard': return <Dashboard month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} totalSaved={goals.reduce((a:number,g:Goal)=>a+g.saved,0)} utilization={utilization} allocated={allocated} categoryData={categoryData} monthlyData={monthlyData} transactions={monthTx} highestCategory={highestCategory} expenseChange={expenseChange} budgets={budgets} onAdd={openAdd} onNavigate={setPage} onEdit={openEdit} onChat={()=>setChatOpen(true)} />
-      case 'Smart Scanner': return <SmartScanner transactions={transactions} onSave={(tx:Transaction)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify(tr("Scanned transaction saved to MONETRA"))}} notify={notify} />
       case 'Transactions': return <div className="page-stack"><TransactionsPage rows={filtered} query={query} setQuery={setQuery} filterType={filterType} setFilterType={setFilterType} filterCategory={filterCategory} setFilterCategory={setFilterCategory} filterMonth={filterMonth} setFilterMonth={setFilterMonth} onAdd={openAdd} onEdit={openEdit} onDelete={removeTx} onCSV={exportCSV} /><RecurringPanel rules={recurring} onAdd={()=>{setEditingRec(null);setRecModal(true)}} onEdit={(r:Recurring)=>{setEditingRec(r);setRecModal(true)}} onDelete={deleteRecurring} onToggle={toggleRecurring} /></div>
       case 'Monthly Budget': return <BudgetPage budgets={budgets} transactions={monthTx} onSave={saveBudget} month={month} setMonth={setMonth} />
       case 'Analytics': return <AnalyticsPage categoryData={categoryData} monthlyData={monthlyData} month={month} setMonth={setMonth} transactions={transactions} />
@@ -355,126 +354,6 @@ export default function App() {
     {reminder&&<ReminderNotice percent={curUtil} left={money(Math.max(0,allocated-curSpent))} onClose={()=>setReminder(false)} onChat={()=>{setReminder(false);setChatOpen(true)}}/>}
     <NatasyaChat open={chatOpen} onOpen={()=>setChatOpen(true)} onClose={()=>setChatOpen(false)} transactions={transactions} budgets={budgets} goals={goals} debts={debts} month={month} money={money} expenseCats={EXPENSE_CATEGORIES} incomeCats={INCOME_CATEGORIES} onSave={(tx)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify(t('n.savedToast'))}}/>
     {toast&&<div className="toast"><Check size={15}/>{toast}</div>}
-  </div>
-}
-
-type ScanDraft = { merchant:string; date:string; amount:string; category:string; type:TxType; payment:string; receiptNo:string; items:string; rawText:string }
-type ScanHistoryItem = { id:string; merchant:string; date:string; amount:number; category:string; status:string; image:string; receiptNo:string }
-
-const guessCategory = (text:string) => {
-  const t=text.toLowerCase()
-  if (/resto|restaurant|cafe|coffee|warung|bakery|food|makan|minum|ayam|bakso|kopi|boba|pizza|mcd|kfc/.test(t)) return 'Food & Beverages'
-  if (/grab|gojek|pertamina|shell|taxi|toll|parkir|parking|fuel|bensin|transport/.test(t)) return 'Transportation'
-  if (/pln|listrik|electric|internet|wifi|water|air\s+bersih|indihome|telkom|pdam/.test(t)) return 'Bills & Utilities'
-  if (/pharmacy|apotek|clinic|klinik|hospital|rumah sakit|health|obat/.test(t)) return 'Health'
-  if (/book|buku|course|kursus|school|sekolah|campus|kuliah/.test(t)) return 'Education'
-  if (/netflix|spotify|subscription|disney\+/.test(t)) return 'Subscriptions'
-  if (/salary|gaji|payroll/.test(t)) return 'Salary'
-  return 'Shopping'
-}
-const parseReceiptDate = (text:string) => {
-  const m=text.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/) || text.match(/\b(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})\b/)
-  if (!m) return dateISO()
-  let y:number,mo:number,d:number
-  if (m[1].length===4) { y=+m[1];mo=+m[2];d=+m[3] } else { d=+m[1];mo=+m[2];y=+m[3];if(y<100)y+=2000 }
-  const dt=new Date(y,mo-1,d)
-  return Number.isNaN(dt.getTime())?dateISO():`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-}
-const parseReceipt = (raw:string):ScanDraft => {
-  const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)
-  const totalLines=lines.filter(x=>/(grand\s*total|total\s*bayar|total|jumlah|tagihan|amount\s*due|balance\s*due|nominal)/i.test(x))
-  const candidates=(totalLines.length?totalLines:lines).flatMap(line=>{
-    const nums=[...line.matchAll(/(?:rp\s*)?([0-9][0-9.,\s]{2,})/gi)]
-    return nums.map(n=>Number(n[1].replace(/[.,\s]/g,''))).filter(n=>Number.isFinite(n)&&n>0&&n<=1_000_000_000)
-  })
-  const amount=candidates.length?Math.max(...candidates):0
-  const merchant=lines.find(x=>/[a-zA-Z]{3}/.test(x)&&!/(receipt|invoice|struk|tanggal|date|cashier|kasir|customer|alamat|telp|phone|www\.)/i.test(x))||'Merchant not detected'
-  const receiptNo=(raw.match(/(?:invoice|receipt|struk|trx|transaction|no\.?)[\s:#-]*([A-Z0-9-]{4,})/i)||[])[1]||''
-  const payment=(raw.match(/\b(QRIS|CASH|TUNAI|DEBIT|CREDIT|KARTU KREDIT|TRANSFER|GOPAY|OVO|DANA|SHOPEEPAY)\b/i)||[])[1]||'Not detected'
-  return {merchant,date:parseReceiptDate(raw),amount:amount?String(amount):'',category:guessCategory(raw+' '+merchant),type:/refund|salary|gaji|transfer masuk|income/i.test(raw)?'income':'expense',payment,receiptNo,items:lines.slice(1,Math.max(2,lines.length-3)).join('\n').slice(0,1200),rawText:raw}
-}
-
-function SmartScanner({transactions,onSave,notify}:{transactions:Transaction[];onSave:(tx:Transaction)=>void;notify:(s:string)=>void}) {
-  const [mode,setMode]=useState<'idle'|'camera'|'review'>('idle')
-  const [file,setFile]=useState<File|null>(null)
-  const [preview,setPreview]=useState('')
-  const [draft,setDraft]=useState<ScanDraft|null>(null)
-  const [busy,setBusy]=useState(false)
-  const [error,setError]=useState('')
-  const [history,setHistory]=useState<ScanHistoryItem[]>(()=>{try{return JSON.parse(localStorage.getItem('monetra-scan-history')||'[]')}catch{return []}})
-  const [duplicateConfirmed,setDuplicateConfirmed]=useState(false)
-  const videoRef=useRef<HTMLVideoElement>(null)
-  const streamRef=useRef<MediaStream|null>(null)
-  const inputRef=useRef<HTMLInputElement>(null)
-  const stopCamera=()=>{streamRef.current?.getTracks().forEach(t=>t.stop());streamRef.current=null}
-  useEffect(()=>()=>stopCamera(),[])
-  useEffect(()=>{try{localStorage.setItem('monetra-scan-history',JSON.stringify(history))}catch{notify(tr("Storage is full. The latest scan history may not be saved."))}},[history])
-  const compressImage=(source:File)=>new Promise<string>((resolve,reject)=>{
-    const url=URL.createObjectURL(source),img=new Image()
-    img.onload=()=>{const scale=Math.min(1,1100/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);const ctx=canvas.getContext('2d');if(!ctx){URL.revokeObjectURL(url);reject(new Error(tr("Canvas is not available")));return}ctx.drawImage(img,0,0,canvas.width,canvas.height);URL.revokeObjectURL(url);resolve(canvas.toDataURL('image/jpeg',.68))}
-    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error(tr("The image could not be read")))};img.src=url
-  })
-  const processImage=async (selected:File)=>{
-    if(!selected.type.startsWith('image/')){setError(tr("Please choose a JPG, PNG, or WEBP image."));return}
-    if(selected.size>12*1024*1024){setError(tr("Maximum image size is 12 MB."));return}
-    setError('');setBusy(true);setFile(selected);setDuplicateConfirmed(false)
-    const localUrl=URL.createObjectURL(selected);setPreview(localUrl)
-    try {
-      const compressed=await compressImage(selected)
-      // Load OCR from a browser ESM CDN so this Vite/Vercel project needs no native server or API key.
-      // @ts-ignore — remote ESM module is resolved by the browser at runtime.
-      const {createWorker}=await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.esm.min.js')
-      const worker=await createWorker('eng')
-      let textResult=''
-      try {const result=await worker.recognize(selected);textResult=result.data.text||''} finally {await worker.terminate()}
-      if(!textResult.trim()) throw new Error(tr("No readable text found. Try a brighter, straighter photo."))
-      setDraft(parseReceipt(textResult));setMode('review')
-      const parsed=parseReceipt(textResult)
-      const record:ScanHistoryItem={id:uid(),merchant:parsed.merchant,date:parsed.date,amount:Number(parsed.amount)||0,category:parsed.category,status:'Awaiting confirmation',image:compressed,receiptNo:parsed.receiptNo}
-      setHistory(h=>[record,...h].slice(0,12))
-      notify(tr("Scan complete. Review the OCR results before saving."))
-    } catch(e:any) {setError(e?.message||tr("Could not read the image. Please try again or enter the details manually."));setMode('review');setDraft(parseReceipt(''))}
-    finally {setBusy(false)}
-  }
-  const startCamera=async()=>{
-    setError('')
-    if(!navigator.mediaDevices?.getUserMedia){setError(tr("Camera access is unavailable. Open MONETRA over HTTPS or localhost, or upload a receipt image."));return}
-    try {const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});streamRef.current=stream;setMode('camera');requestAnimationFrame(()=>{if(videoRef.current){videoRef.current.srcObject=stream;void videoRef.current.play()}})}
-    catch(e:any){setError(e?.name==='NotAllowedError'?tr("Camera permission was denied. Enable camera access in your browser settings."):tr("Could not open the camera. Make sure another app is not using it, or upload a receipt image."))}
-  }
-  const capture=()=>{const video=videoRef.current;if(!video||!video.videoWidth)return;const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d')?.drawImage(video,0,0);canvas.toBlob(blob=>{if(blob){stopCamera();void processImage(new File([blob],`monetra-scan-${Date.now()}.jpg`,{type:'image/jpeg'}))}},'image/jpeg',.9)}
-  const update=(key:keyof ScanDraft,value:string)=>setDraft(d=>d?({...d,[key]:value} as ScanDraft):d)
-  const amount=Number(draft?.amount||0)
-  const duplicate=!!draft&&transactions.some(t=>t.type===draft.type&&t.amount===amount&&t.date===draft.date&&t.name.trim().toLowerCase()===draft.merchant.trim().toLowerCase())
-  const save=()=>{
-    if(!draft||!draft.merchant.trim()||!amount||amount>1_000_000_000){setError(tr("Enter a merchant name and a valid amount (maximum IDR 1,000,000,000)."));return}
-    if(duplicate&&!duplicateConfirmed){setError(tr("A similar transaction already exists. Confirm the duplicate warning to save it anyway."));return}
-    const tx:Transaction={id:uid(),name:draft.merchant.trim(),amount,type:draft.type,category:draft.category,date:draft.date,notes:[`Smart Scan · OCR`,draft.payment!=='Not detected'?`Payment: ${draft.payment}`:'',draft.receiptNo?`Receipt no.: ${draft.receiptNo}`:'',draft.items?`Items: ${draft.items}`:''].filter(Boolean).join(' | ')}
-    onSave(tx)
-    setHistory(h=>h.map((r,i)=>i===0?{...r,merchant:tx.name,date:tx.date,amount:tx.amount,category:tx.category,status:'Saved'}:r))
-    setMode('idle');setDraft(null);setFile(null);if(preview)URL.revokeObjectURL(preview);setPreview('');setError('');setDuplicateConfirmed(false)
-  }
-  const reset=()=>{stopCamera();setMode('idle');setDraft(null);setFile(null);if(preview)URL.revokeObjectURL(preview);setPreview('');setError('');setDuplicateConfirmed(false)}
-  const categories=draft?.type==='income'?INCOME_CATEGORIES:EXPENSE_CATEGORIES
-  return <div className="scanner-page page-enter">
-    <PageHeading eyebrow={tr("SMART FINANCE TOOL")} title={tr("Smart Auto Scan")} description={tr("Turn receipt photos into MONETRA transactions. Review the extracted details before saving.")} action={<span className="scanner-private"><ShieldCheck size={14}/> {tr("Processed on this device")}</span>}/>
-    {error&&<div className="scanner-alert" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label={tr("Close message")}><X size={14}/></button></div>}
-    {mode==='camera'&&<section className="panel scanner-camera-panel"><div className="scanner-panel-head"><div><span className="panel-kicker">{tr("LIVE CAMERA")}</span><h2>{tr("Position the receipt inside the frame")}</h2></div><button className="icon-button" onClick={reset} aria-label={tr("Close camera")}><X size={17}/></button></div><div className="camera-frame"><video ref={videoRef} autoPlay muted playsInline/><div className="camera-guide"/></div><div className="scanner-actions"><button className="secondary-button" onClick={reset}>{tr("Cancel")}</button><button className="primary-button" onClick={capture}><Camera size={15}/> {tr("Capture Photo")}</button></div></section>}
-    {mode==='review'&&draft&&<section className="panel scanner-review"><div className="scanner-panel-head"><div><span className="panel-kicker">{tr("REVIEW & CONFIRM")}</span><h2>{tr("Review scanned details")}</h2><p>{tr("OCR may misread numbers or names. Please check that all details are correct.")}</p></div><button className="icon-button" onClick={reset} aria-label={tr("Close review")}><X size={17}/></button></div><div className="review-layout"><div className="receipt-preview">{preview&&<img src={preview} alt="Scanned receipt preview"/>}<span>{tr("RECEIPT PREVIEW")}</span></div><div className="review-fields">
-      <div className="form-row"><label>{tr("Merchant name")}<input value={draft.merchant} onChange={e=>update('merchant',e.target.value)} /></label><label>{tr("Transaction date")}<input type="date" value={draft.date} onChange={e=>update('date',e.target.value)}/></label></div>
-      <label>{tr("Transaction type")}<select value={draft.type} onChange={e=>{update('type',e.target.value);update('category',e.target.value==='income'?'Other Income':'Other')}}><option value="expense">{tr("Expense")}</option><option value="income">{tr("Income")}</option></select></label>
-      <label>{tr("Category")}<select value={draft.category} onChange={e=>update('category',e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
-      <label>{tr("Transaction amount (IDR)")}<input inputMode="numeric" value={formatDigits(draft.amount)} onChange={e=>update('amount',digitsOnly(e.target.value))} placeholder="e.g. 125,000"/></label>
-      <div className="form-row"><label>{tr("Payment method")}<input value={draft.payment} onChange={e=>update('payment',e.target.value)} /></label><label>{tr("Receipt / invoice number")}<input value={draft.receiptNo} onChange={e=>update('receiptNo',e.target.value)} placeholder={tr("Optional")}/></label></div>
-      <label>{tr("Items / OCR notes")}<textarea rows={3} value={draft.items} onChange={e=>update('items',e.target.value)} placeholder={tr("Item details (optional)")}/></label>
-      {duplicate&&<div className="scanner-duplicate"><AlertTriangle size={16}/><div><strong>{tr("Possible duplicate transaction")}</strong><p>{tr("The merchant, date, amount, and transaction type match an existing record.")}</p><label className="duplicate-check"><input type="checkbox" checked={duplicateConfirmed} onChange={e=>setDuplicateConfirmed(e.target.checked)}/> {tr("I have reviewed this and still want to save it.")}</label></div></div>}
-      <div className="scanner-actions"><button className="secondary-button" onClick={reset}>{tr("Cancel")}</button><button className="secondary-button" onClick={()=>{setMode('idle');setDraft(null);if(preview)URL.revokeObjectURL(preview);setPreview('');inputRef.current?.click()}}><RefreshCw size={14}/> {tr("Scan Again")}</button><button className="primary-button" onClick={save} disabled={!draft.merchant.trim()||!amount}><Check size={15}/> {tr("Confirm & Save")}</button></div>
-    </div></div></section>}
-    {mode==='idle'&&<><section className="scanner-hero panel"><div className="scanner-hero-copy"><span className="panel-kicker">{tr("SMART AUTO SCAN TRANSACTION")}</span><h2>{tr("Track transactions without manual entry.")}</h2><p>{tr("Take a receipt photo or upload an image. MONETRA reads the text on your device, suggests a category, and asks for your confirmation before saving.")}</p><div className="scanner-actions"><button className="primary-button" onClick={()=>void startCamera()}><Camera size={15}/> {tr("Scan with Camera")}</button><button className="secondary-button" onClick={()=>inputRef.current?.click()}><ImagePlus size={15}/> {tr("Upload Image")}</button></div><input ref={inputRef} hidden type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)void processImage(f);e.currentTarget.value=''}}/></div><div className="scanner-illustration"><div className="scan-orbit orbit-one"/><div className="scan-orbit orbit-two"/><div className="scan-receipt"><ReceiptText size={42}/><i/><i/><i/><b><ScanLine size={22}/></b></div><span className="scan-spark">✦</span></div></section>
-      <div className="scanner-info-grid"><div className="panel scanner-info"><span className="info-number">01</span><Camera size={18}/><strong>{tr("Capture or upload")}</strong><p>{tr("Use your phone's rear camera or choose an image from your device.")}</p></div><div className="panel scanner-info"><span className="info-number">02</span><ScanLine size={18}/><strong>{tr("Automatic recognition")}</strong><p>{tr("OCR detects key details such as merchant, date, amount, and payment method.")}</p></div><div className="panel scanner-info"><span className="info-number">03</span><ShieldCheck size={18}/><strong>{tr("Review and save")}</strong><p>{tr("You can edit every result. No transaction is saved without your confirmation.")}</p></div></div>
-      {busy&&<div className="scanner-progress panel"><LoaderCircle size={18} className="scanner-spin"/><div><strong>{tr("Reading image...")}</strong><p>{tr("The first scan may take a little longer while OCR data is downloaded.")}</p></div></div>}
-      <section className="panel scanner-history"><div className="scanner-panel-head"><div><span className="panel-kicker">{tr("RECENT ACTIVITY")}</span><h2>{tr("Scan history")}</h2></div><span className="history-count">{history.length} scan</span></div>{history.length===0?<div className="scanner-empty"><ReceiptText size={25}/><strong>{tr("No scans yet")}</strong><p>{tr("Your scanned receipts will appear here.")}</p></div>:<div className="history-list">{history.map(row=><div className="history-row" key={row.id}><img src={row.image} alt="Receipt thumbnail"/><div className="history-main"><strong>{row.merchant}</strong><span>{row.date} · {row.category}</span></div><div className="history-amount">{money(row.amount)}</div><span className={`history-status ${row.status==='Saved'?'saved':''}`}>{row.status}</span><button className="icon-button" aria-label={tr("Delete scan history")} onClick={()=>setHistory(h=>h.filter(x=>x.id!==row.id))}><Trash2 size={14}/></button></div>)}</div>}</section></>}
-    <p className="scanner-footnote"><ShieldCheck size={13}/> {tr("Images and OCR results are processed in your browser. MONETRA transactions are stored locally on this device, not in a cloud database.")}</p>
   </div>
 }
 
