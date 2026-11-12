@@ -2,7 +2,7 @@ export type Lang = 'id' | 'en'
 const D: Record<Lang, Record<string, string>> = {
   id: {
     'nav.Dashboard':'Dasbor','nav.Smart Scanner':'Pemindai Pintar','nav.Transactions':'Transaksi','nav.Monthly Budget':'Anggaran Bulanan','nav.Analytics':'Analitik','nav.Financial Calendar':'Kalender Keuangan','nav.Savings Goals':'Target Tabungan','nav.Debts':'Utang','nav.Monthly Reports':'Laporan Bulanan','nav.Profile':'Profil Hewan','nav.Settings':'Pengaturan',
-    'workspace':'RUANG KERJA','crumb':'Ruang kerja','caught':'Semua sudah terbaca',
+    'workspace':'RUANG KERJA','grp.overview':'RINGKASAN','grp.finance':'KEUANGAN','grp.analysis':'ANALISIS','grp.account':'AKUN','nav.more':'Lainnya','crumb':'Ruang kerja','caught':'Semua sudah terbaca',
     'help.title':'Tanya Natasya','help.body':'Catat pengeluaran atau tanya keuanganmu lewat chat.','help.btn':'Buka chat',
     'd.eyebrow':'GAMBARAN KEUANGANMU','d.title':'Kebiasaan uang yang baik dimulai di sini.','d.desc':'Gambaran jelas arus kas, pengeluaran, dan apa yang sedang kamu bangun.','add':'Tambah transaksi',
     'm.income':'Total pemasukan','m.income.sub':'Uang masuk bulan ini','m.expense':'Total pengeluaran','m.expense.sub':'Uang keluar bulan ini','m.balance':'Sisa saldo','m.balance.sub':'Pemasukan dikurangi pengeluaran','m.saved':'Total tabungan','m.saved.sub':'Tersimpan di semua target','m.rate':'Tingkat tabung','m.rate.sub':'Arus kas positif bulanan / pemasukan','vsLast':'dibanding bulan lalu',
@@ -18,7 +18,7 @@ const D: Record<Lang, Record<string, string>> = {
   },
   en: {
     'nav.Dashboard':'Dashboard','nav.Smart Scanner':'Smart Scanner','nav.Transactions':'Transactions','nav.Monthly Budget':'Monthly Budget','nav.Analytics':'Analytics','nav.Financial Calendar':'Financial Calendar','nav.Savings Goals':'Savings Goals','nav.Debts':'Debts','nav.Monthly Reports':'Monthly Reports','nav.Profile':'Animal Profile','nav.Settings':'Settings',
-    'workspace':'WORKSPACE','crumb':'Workspace','caught':'You are all caught up',
+    'workspace':'WORKSPACE','grp.overview':'OVERVIEW','grp.finance':'FINANCE','grp.analysis':'ANALYSIS','grp.account':'ACCOUNT','nav.more':'More','crumb':'Workspace','caught':'You are all caught up',
     'help.title':'Ask Natasya','help.body':'Log expenses or ask about your money in chat.','help.btn':'Open chat',
     'd.eyebrow':'YOUR FINANCIAL OVERVIEW','d.title':'Good money habits start here.','d.desc':"A clear view of your cash flow, spending, and what you're building toward.",'add':'Add transaction',
     'm.income':'Total income','m.income.sub':'Money received this month','m.expense':'Total expenses','m.expense.sub':'Money spent this month','m.balance':'Remaining balance','m.balance.sub':'Income minus expenses','m.saved':'Total savings','m.saved.sub':'Saved across your goals','m.rate':'Savings rate','m.rate.sub':'Positive monthly cash flow / income','vsLast':'vs last month',
