@@ -36,6 +36,13 @@ export function NatasyaChat(props: ChatProps) {
   const [typing, setTyping] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
   const [teaser, setTeaser] = useState('')
+  // Tetap ter-mount ±220ms setelah ditutup supaya transisi keluar (fade/slide) bisa tampil.
+  const [mounted, setMounted] = useState(open)
+  useEffect(() => {
+    if (open) { setMounted(true); return }
+    const id = window.setTimeout(() => setMounted(false), 220)
+    return () => window.clearTimeout(id)
+  }, [open])
   const idRef = useRef(1)
   const timerRef = useRef<number | null>(null)
   const tokenRef = useRef(0)
@@ -154,7 +161,7 @@ export function NatasyaChat(props: ChatProps) {
     setMsgs([{ id: idRef.current++, from: 'bot', text: greeting(ctx()) }])
   }
 
-  if (!open) return <>
+  if (!open && !mounted) return <>
     {teaser && <button className="nat-teaser" onClick={onOpen} aria-label={t('n.open')}><strong>Natasya</strong><span>{teaser}</span></button>}
     <button className="natasya-fab" onClick={onOpen} aria-label={t('n.open')}><Sparkles size={22} />{teaser && <i className="nat-dot" />}</button>
   </>
@@ -165,8 +172,8 @@ export function NatasyaChat(props: ChatProps) {
   const canClear = msgs.length > 1 || typing
 
   return <>
-    <button className="natasya-backdrop" aria-label={t('n.close')} onClick={onClose} />
-    <aside className="natasya-drawer" aria-label="Natasya">
+    <button className={`natasya-backdrop ${open ? '' : 'closing'}`} aria-label={t('n.close')} onClick={onClose} />
+    <aside className={`natasya-drawer ${open ? '' : 'closing'}`} aria-label="Natasya">
     <div className="nat-head">
       <div className="nat-avatar">N</div>
       <div><strong>{t('n.title')}</strong><span>{t('n.sub')}</span></div>
