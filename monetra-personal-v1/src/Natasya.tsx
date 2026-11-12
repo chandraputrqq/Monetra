@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from 'react'
 import { Sparkles, X, ArrowUp, Trash2 } from 'lucide-react'
 import { t } from './i18n'
 import { answerQuestion, dailyInsight, greeting, postSaveInsight } from './natasya-brain'
+import { askNatasyaAI } from './natasya-ai'
 import type { BotResult, Budget, DebtLite, Draft, GoalLite, Tx } from './natasya-brain'
 
 type Msg = { id: number; from: 'bot' | 'me'; text?: string; draft?: Draft; status?: 'pending' | 'saved' | 'cancelled'; followUps?: string[] }
@@ -132,12 +133,57 @@ export function NatasyaChat(props: ChatProps) {
   const send = (text: string) => {
     const q = text.trim()
     if (!q) return
+    const previousMessages = msgs
     setMsgs(m => [...m, { id: idRef.current++, from: 'me', text: q }])
     setInput('')
-    botReply(() => {
-      const r = answerQuestion(ctx(), q)
-      return r.draft ? { ...r, text: t('n.draft') } : r
-    })
+
+    const local = answerQuestion(ctx(), q)
+    // Pencatatan transaksi tetap memakai parser lokal dan selalu meminta konfirmasi.
+    if (local.draft) {
+      botReply(() => ({ ...local, text: t('n.draft') }))
+      return
+    }
+
+    cancelPending()
+    const token = tokenRef.current
+    setTyping(true)
+    const p = propsRef.current
+    const financialContext = {
+      month: p.month,
+      today: todayIso(),
+      transactions: [...p.transactions]
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 30)
+        .map(x => ({ name: x.name, amount: x.amount, type: x.type, category: x.category, date: x.date })),
+      budgets: p.budgets.map(x => ({ category: x.category, limit: x.limit })),
+      goals: (p.goals || []).map(x => ({ name: x.name, target: x.target, saved: x.saved, date: x.date, paused: x.paused, completed: x.completed })),
+      debts: (p.debts || []).map(x => ({ direction: x.direction, amount: x.amount, payments: x.payments.map(y => ({ amount: y.amount })), due: x.due })),
+    }
+    const history = previousMessages
+      .filter(x => (x.from === 'me' || x.from === 'bot') && !!x.text)
+      .slice(-8)
+      .map(x => ({ role: x.from === 'me' ? 'user' as const : 'assistant' as const, content: x.text || '' }))
+
+    void (async () => {
+      let aiReply: string | null = null
+      try {
+        aiReply = await askNatasyaAI({ message: q, history, context: financialContext })
+      } catch {
+        aiReply = null
+      }
+      if (token !== tokenRef.current) return
+      const fallback = local.text || t('n.aiFallback')
+      const reply = aiReply || `${fallback}
+
+${t('n.aiFallbackNotice')}`
+      const delay = typingDelay(reply.length)
+      timerRef.current = window.setTimeout(() => {
+        if (token !== tokenRef.current) return
+        timerRef.current = null
+        setMsgs(m => [...m, { id: idRef.current++, from: 'bot', text: reply, followUps: aiReply ? undefined : local.followUps }])
+        setTyping(false)
+      }, delay)
+    })()
   }
   const submit = (e: FormEvent) => { e.preventDefault(); send(input) }
   const patchMsg = (id: number, p: Partial<Msg>) => setMsgs(m => m.map(x => (x.id === id ? { ...x, ...p } : x)))
