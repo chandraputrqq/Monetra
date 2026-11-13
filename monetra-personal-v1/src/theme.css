@@ -62,7 +62,8 @@ h1{font-size:clamp(26px,2.6vw,34px);letter-spacing:-1px;font-weight:600}
 .brand-mark span{border-color:var(--emerald-deep)}
 .brand small{display:none}
 .sidebar nav{margin-top:26px;gap:16px;display:flex;flex-direction:column;overflow-y:auto}
-.nav-group{display:grid;gap:2px}
+.nav-group{display:flex;flex-direction:column;align-items:stretch;gap:2px;width:100%}
+.sidebar .nav-item{width:100%;box-sizing:border-box;flex:none}
 .nav-group-label{font-size:10px;letter-spacing:1.5px;font-weight:600;color:#5d6b63;padding:0 12px;margin-bottom:4px}
 .nav-item{height:40px;font-size:13.5px;font-weight:500;color:var(--muted);border-radius:var(--radius-sm);gap:11px;padding:0 12px;
   transition:background var(--t-mid) var(--ease),color var(--t-mid) var(--ease),transform var(--t-fast)}
@@ -255,3 +256,90 @@ html,body{max-width:100%;overflow-x:hidden}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   .sk{animation:none}
 }
+
+/* =====================================================================
+   v2 — Sage sederhana: scrollbar sidebar, bar Profil, ikon Anggaran/Utang
+   ===================================================================== */
+:root{--sage:#8fbf9b;--sage-soft:#8fbf9b22;--sage-line:#8fbf9b55}
+
+/* Sidebar: tanpa panah scrollbar, bar tipis sage yang stabil (tidak berkedip/glow) */
+*::-webkit-scrollbar-button{display:none;width:0;height:0}
+.sidebar{overflow:hidden}
+.sidebar nav{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;margin-top:20px;gap:12px;padding-right:2px;
+  scrollbar-width:thin;scrollbar-color:var(--sage-line) transparent}
+.sidebar nav::-webkit-scrollbar{width:5px;background:transparent}
+.sidebar nav::-webkit-scrollbar-track{background:transparent}
+.sidebar nav::-webkit-scrollbar-thumb{background:var(--sage-line);border-radius:6px;transition:none}
+.sidebar nav::-webkit-scrollbar-thumb:hover{background:#8fbf9b99}
+.sidebar-bottom{flex:none}
+.sidebar .nav-item{height:38px}
+
+/* Profil Hewan: bar & bingkai polos berwarna sage, tanpa glow */
+.pf-level .progress-track,.pf-bars .progress-track{height:6px;background:#ffffff10;box-shadow:none}
+.pf-level .progress-track>span,.pf-bars .progress-track>span{background:var(--sage);background-image:none;box-shadow:none;filter:none;animation:none;transition:width var(--t-slow) var(--ease)}
+.pf-frame-glow{box-shadow:0 0 0 2px var(--pf-accent,var(--sage))}
+/* Cahaya lembut kartu hero tetap ada (tidak lagi dihapus oleh animasi) */
+.pf-hero{overflow:hidden}
+.pf-health strong{text-shadow:none}
+
+/* Anggaran: ikon kategori */
+.budget-cat-icon{width:38px;height:38px;flex:none;border-radius:11px;display:grid;place-items:center;background:var(--sage-soft);color:var(--sage)}
+.budget-category{transition:border-color var(--t-mid),transform var(--t-mid) var(--ease)}
+.budget-category:hover{border-color:var(--sage-line);transform:translateY(-1px)}
+.budget-overview .panel-kicker svg{color:var(--sage);flex:none}
+.budget-overview>div{gap:9px}
+
+/* Utang: ikon di kartu ringkasan */
+.debts-overview .goal-overview-mark{background:var(--sage-soft);color:var(--sage)}
+.debts-overview .goal-overview-card.lead{background:var(--panel);border-color:var(--sage-line)}
+
+/* ===== Tantangan Hemat, Rekap Bulanan, Mode Privasi ===== */
+.chl-page{display:grid;gap:18px}
+.chl-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.chl-stat{display:grid;gap:4px;padding:16px 18px;color:var(--green)}
+.chl-stat strong{font-size:26px;color:var(--text);font-variant-numeric:tabular-nums}
+.chl-stat span{font-size:12px;color:var(--muted)}
+.chl-kinds{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.chl-kinds button,.chl-days button{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;text-align:left;transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+.chl-kinds button{display:grid;gap:3px;padding:13px 14px}
+.chl-kinds button span{font-size:20px}.chl-kinds button small{color:var(--muted);font-size:12px}
+.chl-kinds button.active,.chl-days button.active{border-color:var(--green);background:#34d3991a}
+.chl-kinds button:hover,.chl-days button:hover{border-color:var(--line-strong)}
+.chl-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px}
+.chl-field{display:grid;gap:6px;font-size:12px;color:var(--muted)}
+.chl-field input{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:var(--radius-sm);padding:10px 12px;min-width:160px}
+.chl-days{display:flex;gap:6px;flex-wrap:wrap}.chl-days button{padding:9px 13px;font-size:13px}
+.chl-error{color:#fca5a5;font-size:13px;margin-top:10px}
+.chl-list{display:grid;gap:12px}
+.chl-empty{display:grid;justify-items:center;text-align:center;gap:6px;padding:30px}.chl-empty>span{font-size:30px}.chl-empty p{color:var(--muted);margin:0}
+.chl-card{display:grid;gap:14px}
+.chl-card-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.chl-card-top h3{margin:6px 0 4px;font-size:17px}.chl-card-top p{margin:0;color:var(--muted);font-size:13px}
+.chl-card-actions{display:flex;gap:8px;align-items:center;flex:none}
+.chl-status{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;background:#ffffff10;color:var(--soft)}
+.chl-status.active{background:#34d39922;color:var(--green)}.chl-status.won{background:#d6a45a26;color:#e6bd7c}.chl-status.failed{background:#f8717120;color:#fca5a5}
+.chl-dots{display:flex;gap:5px;flex-wrap:wrap}
+.chl-dots i{width:18px;height:18px;border-radius:6px;background:#ffffff0f;border:1px solid var(--line)}
+.chl-dots i.ok{background:var(--green);border-color:var(--green)}
+.chl-dots i.today{background:#34d39940;border-color:var(--green)}
+.chl-dots i.fail,.chl-dots i.todayfail{background:#f8717140;border-color:#f87171}
+.chl-meta{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted)}
+.chl-meta span{display:inline-flex;align-items:center;gap:5px}
+.chl-count{font-size:13px;color:var(--muted)}
+.chl-badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+.chl-badges div{display:grid;gap:3px;padding:13px;border-radius:var(--radius-sm);background:var(--panel2);border:1px solid var(--line);opacity:.55}
+.chl-badges div.earned{opacity:1;border-color:#d6a45a55}
+.chl-badges span{font-size:22px}.chl-badges strong{font-size:13px}.chl-badges small{font-size:11px;color:var(--muted)}
+@media(max-width:700px){.chl-stats{gap:7px}.chl-stat{padding:12px}.chl-stat strong{font-size:20px}.chl-kinds{grid-template-columns:1fr}.chl-card-top{flex-direction:column}}
+
+.recap-panel{display:grid;gap:14px}
+.recap-verdict{margin:0;font-size:15px;line-height:1.5}
+.recap-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.recap-grid div{display:grid;gap:3px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--panel2);border:1px solid var(--line);min-width:0}
+.recap-grid small{font-size:11px;color:var(--muted)}.recap-grid strong{font-size:15px;overflow-wrap:anywhere}.recap-grid em{font-style:normal;font-size:11px;color:var(--soft)}
+.recap-chl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--soft)}
+@media(max-width:800px){.recap-grid{grid-template-columns:repeat(2,1fr)}}
+
+.privacy-on .icon-button.privacy-toggle{color:var(--green);border-color:#34d39966}
+@media(prefers-reduced-motion:reduce){.chl-kinds button,.chl-days button{transition:none}}
+.dashboard-grid>.recap-panel{order:3;grid-column:1/-1}
