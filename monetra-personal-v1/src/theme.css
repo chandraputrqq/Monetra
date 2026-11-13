@@ -375,7 +375,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .chl-dur-tag{position:absolute;right:12px;top:12px;font-size:10px;font-weight:600;color:#e6bd7c;background:#d6a45a1f;border:1px solid #d6a45a40;border-radius:99px;padding:3px 8px}
 .chl-cap{margin-top:16px;max-width:280px}
 .chl-summary{display:flex;align-items:center;gap:16px;margin-top:16px;padding:13px 16px;border-radius:12px;background:#8fbf9b10;border:1px dashed #8fbf9b44;font-size:13px;line-height:1.5;color:var(--soft)}
-.chl-summary>span{flex:1;min-width:0}.chl-summary b{color:var(--text)}.chl-summary svg{display:inline;vertical-align:-3px;margin-right:4px;color:var(--sage)}
+.chl-summary>span{flex:1;min-width:0}.chl-summary b{color:var(--text)}.chl-summary>span svg{display:inline;vertical-align:-3px;margin-right:4px;color:var(--sage)}
+.chl-summary .primary-button svg{color:var(--emerald-deep);stroke-width:2.5}
 .chl-summary .primary-button{flex:none}
 
 .chl-progress{display:flex;align-items:center;gap:16px;margin:4px 0 2px}
