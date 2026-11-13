@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NatasyaChat, ReminderNotice, QuoteNotice } from './Natasya'
 import { pickQuote } from './reminders'
+import { ChallengesPage } from './Challenges'
+import { monthRecap, evaluateChallenge, challengeTitle } from './features'
+import type { Challenge, Recap } from './features'
 import { useCloudSync, CloudPanel } from './CloudSync'
 import { ProfilePage, AnimalAvatar, analyze, resolveAnimal, DEFAULT_PROFILE, ANIMALS } from './Profile'
 import type { ProfilePrefs } from './Profile'
@@ -16,7 +19,7 @@ import {
   ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2,
   X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal,
   Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, RefreshCw, Users, Languages, PawPrint,
-  UtensilsCrossed, Car, ShoppingBag, Clapperboard, GraduationCap, Zap, HeartPulse, Home, Repeat, Shapes
+  UtensilsCrossed, Car, ShoppingBag, Clapperboard, GraduationCap, Zap, HeartPulse, Home, Repeat, Shapes, Eye, EyeOff
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -33,20 +36,20 @@ type GoalContribution = { id:string; type:'deposit'|'withdrawal'; amount:number;
 type Goal = { id:string; name:string; target:number; saved:number; date:string; category?:string; description?:string; priority?:'Low'|'Medium'|'High'; paused?:boolean; completed?:boolean; contributions?:GoalContribution[] }
 type DebtPayment = { id: string; amount: number; date: string; notes?: string }
 type Debt = { id: string; person: string; direction: 'lent' | 'borrowed'; amount: number; date: string; due?: string; notes?: string; payments: DebtPayment[] }
-type Page = 'Dashboard' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Profile' | 'Settings'
+type Page = 'Dashboard' | 'Challenges' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Profile' | 'Settings'
 
 const EXPENSE_CATEGORIES = ['Food & Beverages','Transportation','Shopping','Entertainment','Education','Bills & Utilities','Health','Housing','Subscriptions','Other']
 const INCOME_CATEGORIES = ['Salary','Business','Freelance','Investment Returns','Other Income']
 const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
   { label:'Dashboard', icon:LayoutDashboard }, { label:'Transactions', icon:ArrowLeftRight },
   { label:'Monthly Budget', icon:Wallet }, { label:'Analytics', icon:ChartNoAxesCombined },
-  { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target }, { label:'Debts', icon:Users },
+  { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target }, { label:'Challenges', icon:Trophy }, { label:'Debts', icon:Users },
   { label:'Monthly Reports', icon:FileText }, { label:'Profile', icon:PawPrint }, { label:'Settings', icon:Settings }
 ]
 // Menu dikelompokkan; semua halaman lama tetap ada. Label grup memakai kunci i18n 'grp.*'.
 const NAV_GROUPS: { key: string; items: Page[] }[] = [
   { key:'grp.overview', items:['Dashboard'] },
-  { key:'grp.finance', items:['Transactions','Monthly Budget','Savings Goals','Debts'] },
+  { key:'grp.finance', items:['Transactions','Monthly Budget','Savings Goals','Challenges','Debts'] },
   { key:'grp.analysis', items:['Analytics','Financial Calendar','Monthly Reports'] },
   { key:'grp.account', items:['Profile','Settings'] }
 ]
@@ -59,12 +62,16 @@ const CAT_ID: Record<string,string> = {'Food & Beverages':'Makanan & Minuman','T
 const catLabel = (c: string) => getLang() === 'id' ? (CAT_ID[c] || c) : c
 const CAT_ICON: Record<string, any> = {'Food & Beverages':UtensilsCrossed,'Transportation':Car,'Shopping':ShoppingBag,'Entertainment':Clapperboard,'Education':GraduationCap,'Bills & Utilities':Zap,'Health':HeartPulse,'Housing':Home,'Subscriptions':Repeat,'Other':Shapes}
 
-const money = (n: number) => new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', maximumFractionDigits:0 }).format(Math.round(n || 0))
+// Mode privasi: kalau aktif, semua nominal uang di layar disamarkan. fmtMoney tetap angka asli (untuk ekspor).
+let HIDE = false
+const fmtMoney = (n: number) => new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', maximumFractionDigits:0 }).format(Math.round(n || 0))
+const MASK = 'Rp •••••'
+const money = (n: number) => HIDE ? MASK : fmtMoney(n)
 const digitsOnly = (value: string) => value.replace(/\D/g, '')
 const formatDigits = (value: string) => { const digits = digitsOnly(value); return digits ? new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Number(digits)) : '' }
 const MAX_FINANCIAL_INPUT = 1_000_000_000
 const limitedDigits = (value: string) => { const digits = digitsOnly(value).replace(/^0+(?=\d)/, ''); return digits ? String(Math.min(Number(digits), MAX_FINANCIAL_INPUT)) : '' }
-const shortMoney = (n: number) => n >= 1_000_000 ? `Rp${(n/1_000_000).toFixed(1).replace('.',',')}jt` : n >= 1000 ? `Rp${Math.round(n/1000)}rb` : money(n)
+const shortMoney = (n: number) => HIDE ? '•••' : n >= 1_000_000 ? `Rp${(n/1_000_000).toFixed(1).replace('.',',')}jt` : n >= 1000 ? `Rp${Math.round(n/1000)}rb` : money(n)
 const dateISO = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 const monthKey = (date: string) => date.slice(0,7)
 const currentMonth = dateISO().slice(0,7)
@@ -133,6 +140,9 @@ export default function App() {
   const [lang,setLangState] = useState<Lang>(getLang())
   const changeLang = (l:Lang) => { setLang(l); setLangState(l); document.documentElement.lang = l }
   const [chatOpen,setChatOpen] = useState(false)
+  const [hideNums,setHideNums] = useState(()=>{ try{ return localStorage.getItem('monetra-privacy')==='1' }catch{ return false } })
+  HIDE = hideNums
+  const togglePrivacy = ()=>setHideNums(v=>{ const n=!v; try{ localStorage.setItem('monetra-privacy',n?'1':'0') }catch{ /* ignore */ } return n })
   const [reminder,setReminder] = useState(false)
   const [quote,setQuote] = useState<string|null>(null)
   const guardRef = useRef({chat:false,budget:false})
@@ -157,6 +167,7 @@ export default function App() {
   const goals: Goal[] = store.goals || []
   const recurring: Recurring[] = store.recurring || []
   const debts: Debt[] = store.debts || []
+  const challenges: Challenge[] = store.challenges || []
   const sp:any = store.profile || {}
   const profilePrefs: ProfilePrefs = {
     name: typeof sp.name==='string'?sp.name:DEFAULT_PROFILE.name, motto: typeof sp.motto==='string'?sp.motto:DEFAULT_PROFILE.motto,
@@ -227,6 +238,11 @@ export default function App() {
   const toggleRecurring = (id: string) => {
     setStore((s:any)=>({ ...s, recurring:(s.recurring || []).map((x:Recurring)=>x.id===id ? (x.active ? { ...x, active:false } : { ...x, active:true, lastGenerated:dateISO() }) : x) }))
   }
+  const saveChallenge = (c: Challenge) => {
+    setStore((s:any)=>({ ...s, challenges:[c, ...(s.challenges || [])] }))
+    notify(Lx('Tantangan dimulai! Semangat 💪','Challenge started! Good luck 💪'))
+  }
+  const deleteChallenge = (id: string) => setStore((s:any)=>({ ...s, challenges:(s.challenges || []).filter((x:Challenge)=>x.id!==id) }))
   const monthTx = useMemo(()=>transactions.filter(t=>monthKey(t.date)===month),[transactions,month])
   const income = sum(monthTx,'income'), expenses = sum(monthTx,'expense'), balance = income-expenses
   const savingsRate = income>0 ? Math.max(0,(balance/income)*100) : 0
@@ -270,6 +286,8 @@ export default function App() {
     const key=monthShift(month,-5+i), list=transactions.filter(t=>monthKey(t.date)===key)
     return {month:new Date(Number(key.slice(0,4)),Number(key.slice(5,7))-1,1).toLocaleDateString(getLang()==='id'?'id-ID':'en-US',{month:'short'}), income:sum(list,'income'), expenses:sum(list,'expense'), savings:sum(list,'income')-sum(list,'expense')}
   }),[transactions,month])
+  const recap = useMemo(()=>monthRecap(transactions,month,dateISO()),[transactions,month])
+  const chlActive = useMemo(()=>challenges.map(c=>({c,r:evaluateChallenge(c,transactions,dateISO())})).filter(x=>x.r.status==='active'),[challenges,transactions])
   const previousTx = transactions.filter(t=>monthKey(t.date)===monthShift(month,-1))
   const previousExpense=sum(previousTx,'expense')
   const expenseChange=previousExpense>0?((expenses-previousExpense)/previousExpense)*100:null
@@ -294,9 +312,9 @@ export default function App() {
     doc.setTextColor(235,239,231); doc.setFontSize(24); doc.text('MONETRA',18,24)
     doc.setFontSize(11); doc.setTextColor(155,214,165); doc.text(monthLabel(month),18,34)
     doc.setTextColor(235,239,231); doc.setFontSize(12)
-    ;[['Total income',money(income)],['Total expenses',money(expenses)],['Net cash flow',money(balance)],['Savings rate',`${savingsRate.toFixed(1)}%`]].forEach((r,i)=>{doc.text(r[0],18,56+i*13);doc.text(r[1],190,56+i*13,{align:'right'})})
+    ;[['Total income',fmtMoney(income)],['Total expenses',fmtMoney(expenses)],['Net cash flow',fmtMoney(balance)],['Savings rate',`${savingsRate.toFixed(1)}%`]].forEach((r,i)=>{doc.text(r[0],18,56+i*13);doc.text(r[1],190,56+i*13,{align:'right'})})
     doc.setFontSize(14); doc.text('Expense breakdown',18,125)
-    doc.setFontSize(10); categoryData.forEach((c,i)=>doc.text(`${c.name} — ${money(c.value)}`,18,138+i*9))
+    doc.setFontSize(10); categoryData.forEach((c,i)=>doc.text(`${c.name} — ${fmtMoney(c.value)}`,18,138+i*9))
     doc.save(`monetra-report-${month}.pdf`)
   }
   const loadDemo = () => {
@@ -314,12 +332,13 @@ export default function App() {
 
   const renderPage = () => {
     switch(page) {
-      case 'Dashboard': return <Dashboard month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} totalSaved={goals.reduce((a:number,g:Goal)=>a+g.saved,0)} utilization={utilization} allocated={allocated} categoryData={categoryData} monthlyData={monthlyData} transactions={monthTx} highestCategory={highestCategory} expenseChange={expenseChange} budgets={budgets} onAdd={openAdd} onNavigate={setPage} onEdit={openEdit} onChat={()=>setChatOpen(true)} />
+      case 'Dashboard': return <Dashboard month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} totalSaved={goals.reduce((a:number,g:Goal)=>a+g.saved,0)} utilization={utilization} allocated={allocated} categoryData={categoryData} monthlyData={monthlyData} transactions={monthTx} highestCategory={highestCategory} expenseChange={expenseChange} budgets={budgets} onAdd={openAdd} onNavigate={setPage} onEdit={openEdit} onChat={()=>setChatOpen(true)} recap={recap} chlActive={chlActive} />
       case 'Transactions': return <div className="page-stack"><TransactionsPage rows={filtered} query={query} setQuery={setQuery} filterType={filterType} setFilterType={setFilterType} filterCategory={filterCategory} setFilterCategory={setFilterCategory} filterMonth={filterMonth} setFilterMonth={setFilterMonth} onAdd={openAdd} onEdit={openEdit} onDelete={removeTx} onCSV={exportCSV} /><RecurringPanel rules={recurring} onAdd={()=>{setEditingRec(null);setRecModal(true)}} onEdit={(r:Recurring)=>{setEditingRec(r);setRecModal(true)}} onDelete={deleteRecurring} onToggle={toggleRecurring} /></div>
       case 'Monthly Budget': return <BudgetPage budgets={budgets} transactions={monthTx} onSave={saveBudget} month={month} setMonth={setMonth} />
       case 'Analytics': return <AnalyticsPage categoryData={categoryData} monthlyData={monthlyData} month={month} setMonth={setMonth} transactions={transactions} />
       case 'Financial Calendar': return <CalendarPage month={month} setMonth={setMonth} transactions={transactions} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
       case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
+      case 'Challenges': return <ChallengesPage challenges={challenges} transactions={transactions} today={dateISO()} money={money} onSave={saveChallenge} onDelete={deleteChallenge} />
       case 'Debts': return <DebtsPage debts={debts} onSave={saveDebt} onDelete={deleteDebt} />
       case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} transactions={monthTx} />
       case 'Profile': return <ProfilePage analysis={analysis} prefs={profilePrefs} onChange={saveProfile} txCount={transactions.length} />
@@ -327,7 +346,7 @@ export default function App() {
     }
   }
 
-  return <div className="app-shell">
+  return <div className={`app-shell ${hideNums?'privacy-on':''}`}>
     <aside className={`sidebar ${mobileNav?'sidebar-open':''}`}>
       <div className="brand"><div className="brand-mark"><span /></div><span>monetra</span><small>{tr("STUDENT FINANCE")}</small></div>
       <nav aria-label={t('workspace')}>{NAV_GROUPS.map(g=><div className="nav-group" key={g.key}><div className="nav-group-label">{t(g.key)}</div>{g.items.map(label=>{const Icon=NAV.find(n=>n.label===label)!.icon;return <button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}} title={t('nav.'+label)} data-tip={t('nav.'+label)} aria-current={page===label?'page':undefined}><Icon size={18}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>})}</div>)}</nav>
@@ -340,7 +359,7 @@ export default function App() {
       <header className="topbar">
         <button className="mobile-menu icon-button" onClick={()=>setMobileNav(!mobileNav)} aria-label={tr("Toggle navigation")}><Menu size={19}/></button>
         <div className="breadcrumb"><span>{t('crumb')}</span><span className="crumb-slash">/</span><strong>{t('nav.'+page)}</strong></div>
-        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Profile')} aria-label="Profile"><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={26}/><ChevronDown size={14}/></button></div>
+        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button privacy-toggle" aria-pressed={hideNums} aria-label={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} title={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} onClick={togglePrivacy}>{hideNums?<EyeOff size={17}/>:<Eye size={17}/>}</button><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Profile')} aria-label="Profile"><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={26}/><ChevronDown size={14}/></button></div>
       </header>
       <div className="page-content">{booting?<PageSkeleton/>:renderPage()}</div>
       <footer className="app-footer"><span>MONETRA <i>·</i> {tr("Know your money. Control your future.")}</span><span>{tr("Private on this browser")} <b>●</b> {tr("Saved on this device")}</span></footer>
@@ -352,7 +371,7 @@ export default function App() {
     {moreOpen&&<><button className="more-scrim" aria-label={tr("Close menu")} onClick={()=>setMoreOpen(false)}/><div className="more-sheet" role="dialog" aria-label={t('nav.more')}><div className="more-grab"/><div className="more-grid">{NAV.filter(n=>!PRIMARY_MOBILE.includes(n.label)).map(({label,icon:Icon})=><button key={label} className={page===label?'active':''} onClick={()=>{setPage(label);setMoreOpen(false)}}><span className="more-icon"><Icon size={19}/></span><span>{t('nav.'+label)}</span></button>)}</div></div></>}
     {quote&&!reminder&&!chatOpen&&<QuoteNotice key={quote} text={quote} onClose={()=>setQuote(null)} onChat={()=>{setQuote(null);setChatOpen(true)}}/>}
     {reminder&&<ReminderNotice percent={curUtil} left={money(Math.max(0,allocated-curSpent))} onClose={()=>setReminder(false)} onChat={()=>{setReminder(false);setChatOpen(true)}}/>}
-    <NatasyaChat open={chatOpen} onOpen={()=>setChatOpen(true)} onClose={()=>setChatOpen(false)} transactions={transactions} budgets={budgets} goals={goals} debts={debts} month={month} money={money} expenseCats={EXPENSE_CATEGORIES} incomeCats={INCOME_CATEGORIES} onSave={(tx)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify(t('n.savedToast'))}}/>
+    <NatasyaChat open={chatOpen} onOpen={()=>setChatOpen(true)} onClose={()=>setChatOpen(false)} transactions={transactions} budgets={budgets} goals={goals} debts={debts} challenges={challenges} month={month} money={money} expenseCats={EXPENSE_CATEGORIES} incomeCats={INCOME_CATEGORIES} onSave={(tx)=>{setStore((s:any)=>({...s,transactions:[tx,...(s.transactions||[])]}));notify(t('n.savedToast'))}}/>
     {toast&&<div className="toast"><Check size={15}/>{toast}</div>}
   </div>
 }
@@ -404,7 +423,7 @@ function ChartTip({active,payload,label}:any) {
   return <div className="chart-tooltip"><span>{label}</span>{payload.map((p:any)=><strong key={p.dataKey}>{p.name||p.dataKey}: {money(p.value)}</strong>)}</div>
 }
 function Dashboard(p:any) {
-  const {month,setMonth,income,expenses,balance,savingsRate,totalSaved,utilization,allocated,categoryData,monthlyData,transactions,highestCategory,expenseChange,budgets,onAdd,onNavigate,onEdit,onChat}=p
+  const {month,setMonth,income,expenses,balance,savingsRate,totalSaved,utilization,allocated,categoryData,monthlyData,transactions,highestCategory,expenseChange,budgets,onAdd,onNavigate,onEdit,onChat,recap,chlActive}=p
   return <div className="page-stack">
     <PageHeading eyebrow={t('d.eyebrow')} title={t('d.title')} description={t('d.desc')} action={<button className="primary-button" onClick={onAdd}><Plus size={16}/> {t('add')} <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
     <div className="overview-toolbar"><div className="live-status"><span className="live-dot"/>{Lx(`${transactions.length} catatan bulan ini`,`${transactions.length} records this month`)}</div><MonthControl month={month} setMonth={setMonth}/></div>
@@ -432,9 +451,34 @@ function Dashboard(p:any) {
         {transactions.length? <div className="insight-copy">{highestCategory?<p>{tr("Your biggest expense this month is")} <strong>{catLabel(highestCategory.name)}</strong>, <strong>{money(highestCategory.value)}</strong>.</p>:<p>{tr("No expense category has been recorded yet. Add an expense to begin.")}</p>}{expenseChange!==null&&<p>{tr("Spending is")} <strong>{Math.abs(expenseChange).toFixed(1)}% {expenseChange>=0?tr("higher"):tr("lower")}</strong> {tr("than last month.")}</p>}<p>{tr("Your current cash-flow savings rate is")} <strong>{savingsRate.toFixed(1)}%</strong>.</p></div>:<p className="muted-note">{tr("Insights appear when you have enough real transaction history. Start by recording income and expenses.")}</p>}
         <div className="insight-actions"><button className="primary-button small" onClick={onChat}><Sparkles size={14}/> {t('rem.btn')}</button><button className="text-link" onClick={()=>onNavigate('Analytics')}>{t('p.explore')} <ArrowUpRight size={14}/></button></div>
       </section>
+    <RecapCard recap={recap} active={chlActive} onNavigate={onNavigate}/>
     <section className="panel recent-panel page-enter dash-recent"><div className="panel-heading"><div><span className="panel-kicker">{tr("LATEST ACTIVITY")}</span><h2>{tr("Recent transactions")}</h2></div><button className="text-link" onClick={()=>onNavigate('Transactions')}>{tr("All transactions")} <ArrowUpRight size={14}/></button></div><TransactionRows rows={transactions.slice().sort((a:Transaction,b:Transaction)=>b.date.localeCompare(a.date)).slice(0,5)} onEdit={onEdit}/></section>
     </div>
   </div>
+}
+function RecapCard({recap,active,onNavigate}:{recap:Recap,active:{c:Challenge,r:ReturnType<typeof evaluateChallenge>}[],onNavigate:(p:Page)=>void}) {
+  const pctAbs = recap.deltaPct===null?0:Math.abs(recap.deltaPct)
+  const vs = recap.isCurrent ? Lx('periode yang sama bulan lalu','the same period last month') : Lx('bulan sebelumnya','the previous month')
+  const verdict = !recap.hasData
+    ? Lx('Belum ada pengeluaran di bulan ini. Catat transaksi pertamamu untuk melihat rekap.','No spending this month yet. Log your first transaction to see the recap.')
+    : recap.deltaPct===null
+      ? Lx(`Pengeluaranmu ${money(recap.expenses)}. Belum ada data bulan sebelumnya untuk dibandingkan.`,`You spent ${money(recap.expenses)}. There is no earlier month to compare with yet.`)
+      : recap.diff>=0
+        ? Lx(`🎉 Kamu lebih hemat ${money(recap.diff)} (${pctAbs.toFixed(0)}%) dibanding ${vs}.`,`🎉 You are ${money(recap.diff)} (${pctAbs.toFixed(0)}%) under ${vs}.`)
+        : Lx(`⚠️ Pengeluaran naik ${money(-recap.diff)} (${pctAbs.toFixed(0)}%) dibanding ${vs}.`,`⚠️ Spending is up ${money(-recap.diff)} (${pctAbs.toFixed(0)}%) vs ${vs}.`)
+  const dayLabel = (iso:string)=>new Date(`${iso}T12:00:00`).toLocaleDateString(getLang()==='id'?'id-ID':'en-US',{day:'numeric',month:'short'})
+  const lead = [...active].sort((a,b)=>b.r.streak-a.r.streak)[0]
+  return <section className="panel recap-panel page-enter">
+    <div className="panel-heading"><div><span className="panel-kicker">{Lx('REKAP OTOMATIS','AUTO RECAP')}</span><h2>{Lx('Rekap','Recap')} {monthLabel(recap.month)}</h2></div></div>
+    <p className="recap-verdict">{verdict}</p>
+    {recap.hasData&&<div className="recap-grid">
+      <div><small>{Lx('Rata-rata per hari','Daily average')}</small><strong>{money(recap.avgDaily)}</strong></div>
+      <div><small>{Lx('Kategori terbesar','Top category')}</small><strong>{recap.topCategory?catLabel(recap.topCategory.name):'—'}</strong>{recap.topCategory&&<em>{money(recap.topCategory.value)}</em>}</div>
+      <div><small>{Lx('Hari paling boros','Priciest day')}</small><strong>{recap.priciestDay?dayLabel(recap.priciestDay.date):'—'}</strong>{recap.priciestDay&&<em>{money(recap.priciestDay.amount)}</em>}</div>
+      <div><small>{Lx('Hari tanpa belanja','No-spend days')}</small><strong>{recap.noSpendDays}/{recap.daysCounted}</strong></div>
+    </div>}
+    {lead&&<div className="recap-chl"><Trophy size={15}/><span>{challengeTitle(lead.c,money)}: {Lx(`hari ke-${lead.r.dayNumber}, streak ${lead.r.streak} hari`,`day ${lead.r.dayNumber}, ${lead.r.streak}-day streak`)}</span><button className="text-link" onClick={()=>onNavigate('Challenges')}>{Lx('Lihat','View')} <ArrowUpRight size={14}/></button></div>}
+  </section>
 }
 function EmptyChart({text}:{text:string}) { return <div className="empty-chart"><div className="empty-orbit"><ChartNoAxesCombined size={20}/></div><p>{text}</p></div> }
 function TransactionRows({rows,onEdit,onDelete}:{rows:Transaction[],onEdit?:(t:Transaction)=>void,onDelete?:(id:string)=>void}) {
