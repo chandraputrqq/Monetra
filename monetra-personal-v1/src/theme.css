@@ -343,3 +343,17 @@ html,body{max-width:100%;overflow-x:hidden}
 .privacy-on .icon-button.privacy-toggle{color:var(--green);border-color:#34d39966}
 @media(prefers-reduced-motion:reduce){.chl-kinds button,.chl-days button{transition:none}}
 .dashboard-grid>.recap-panel{order:3;grid-column:1/-1}
+
+/* ===== Redam cahaya hijau: samakan dengan Dasbor (kartu gelap datar, aksen sage lembut) ===== */
+.report-cover{
+  background:radial-gradient(ellipse at 90% 0%,#8fbf9b12,transparent 55%),var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:none
+}
+.report-cover-top>span,.report-cover-bottom{color:var(--muted)}
+.report-cover>p{color:var(--soft)}
+.goal-overview-card.lead{background:var(--panel);border-color:var(--sage-line)}
+.goal-overview-mark{background:var(--sage-soft);color:var(--sage)}
+.goal-overview-card.lead .panel-kicker{color:var(--muted)}
+.goal-empty-art{border-color:var(--line-strong);background:#ffffff06;color:var(--sage)}
+.goal-empty-art div{border-color:#8fbf9b33}
+.scanner-hero,.pf-hero{background:var(--panel);background-image:none;border-color:var(--line)}
