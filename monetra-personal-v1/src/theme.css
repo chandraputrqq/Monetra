@@ -394,9 +394,6 @@ html,body{max-width:100%;overflow-x:hidden}
 .chl-day.fail .chl-tile{background:#f871711a;border-color:#f8717180;color:#f87171}.chl-day.fail b{color:#fca5a5}
 .chl-day.goal .chl-tile{border-style:dashed;border-color:#d6a45a66;color:#e6bd7c}.chl-day.goal b{color:#e6bd7c}
 .chl-day.goal.reached .chl-tile{border-style:solid;background:#d6a45a26}
-.chl-track.compact{display:grid;grid-template-columns:repeat(7,1fr);gap:14px 8px}
-.chl-track.compact .chl-day:after{display:none}
-.chl-track.compact .chl-tile{width:44px;height:44px;border-radius:13px}
 .chl-say{margin-top:18px;padding:14px 16px;border-radius:12px;background:#d6a45a12;border:1px solid #d6a45a33;font-size:13.5px;line-height:1.5;color:var(--soft)}
 .chl-say b{color:var(--text)}.chl-say p{margin:3px 0 0}
 .chl-say.won{background:#8fbf9b14;border-color:#8fbf9b44}.chl-say.failed{background:#f8717112;border-color:#f8717140}
@@ -415,5 +412,19 @@ html,body{max-width:100%;overflow-x:hidden}
 .chl-badges>div.earned .chl-badge-ic{background:#d6a45a22;filter:none}.chl-badges>div.earned em{color:#e6bd7c;font-weight:600}.chl-badges>div.earned .chl-bprog span{background:#e6bd7c}
 
 @media(max-width:900px){.chl-durs{grid-template-columns:repeat(2,1fr)}.chl-badges{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:700px){.chl-summary{flex-direction:column;align-items:stretch}.chl-summary .primary-button{justify-content:center}.chl-track:not(.compact){display:grid;grid-template-columns:repeat(4,1fr);gap:14px 6px}.chl-day:after{display:none}.chl-tile{width:44px;height:44px}.chl-progress{flex-direction:column;align-items:stretch;gap:6px}}
-@media(max-width:520px){.chl-badges{grid-template-columns:repeat(2,1fr)}.chl-track.compact{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:700px){.chl-summary{flex-direction:column;align-items:stretch}.chl-summary .primary-button{justify-content:center}.chl-track{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 6px}.chl-day:after{display:none}.chl-tile{width:44px;height:44px}.chl-progress{flex-direction:column;align-items:stretch;gap:6px}}
+@media(max-width:520px){.chl-badges{grid-template-columns:repeat(2,1fr)}}
+
+/* Jalur streak: halaman per 7 hari (slide) */
+.chl-pager{display:grid;gap:12px;touch-action:pan-y}
+.chl-pager-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:12px;background:var(--panel2);border:1px solid var(--line)}
+.chl-pager-mid{display:grid;justify-items:center;gap:1px;text-align:center}.chl-pager-mid strong{font-size:13px}.chl-pager-mid small{font-size:11px;color:var(--muted)}
+.chl-pager-head .icon-button:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.chl-pager .chl-track{margin-top:2px;overflow:hidden}
+.chl-track.slide-next{animation:chl-in-next .32s var(--ease)}.chl-track.slide-prev{animation:chl-in-prev .32s var(--ease)}
+@keyframes chl-in-next{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes chl-in-prev{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
+.chl-dots-nav{display:flex;justify-content:center;gap:7px}
+.chl-dots-nav button{width:8px;height:8px;border-radius:99px;border:0;padding:0;background:#ffffff26;cursor:pointer;transition:width var(--t-mid) var(--ease),background var(--t-mid)}
+.chl-dots-nav button.on{width:22px;background:var(--sage)}
+@media(prefers-reduced-motion:reduce){.chl-track.slide-next,.chl-track.slide-prev{animation:none}}
