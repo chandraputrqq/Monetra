@@ -357,3 +357,62 @@ html,body{max-width:100%;overflow-x:hidden}
 .goal-empty-art{border-color:var(--line-strong);background:#ffffff06;color:var(--sage)}
 .goal-empty-art div{border-color:#8fbf9b33}
 .scanner-hero,.pf-hero{background:var(--panel);background-image:none;border-color:var(--line)}
+
+/* ===== Tantangan Hemat: durasi, jalur streak, lencana ===== */
+.chl-step{font-size:13px;font-weight:600;color:var(--soft);margin:18px 0 10px}
+.chl-step.first{margin-top:14px}
+.chl-durs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.chl-dur{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:16px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer;transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease),transform var(--t-fast) var(--ease)}
+.chl-dur:hover{border-color:var(--line-strong);transform:translateY(-1px)}
+.chl-dur-num{font-size:34px;font-weight:700;letter-spacing:-1.5px;line-height:1;margin-bottom:8px}
+.chl-dur-num small{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:5px}
+.chl-dur strong{font-size:14px}
+.chl-dur-desc{font-size:12px;color:var(--muted);line-height:1.35;min-height:32px}
+.chl-lvl{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:11px;color:var(--muted)}
+.chl-lvl i{width:14px;height:5px;border-radius:3px;background:#ffffff14}.chl-lvl i.f{background:var(--sage)}.chl-lvl b{font-weight:500;margin-left:5px}
+.chl-dur.active{border-color:var(--green);background:#34d3991a}.chl-dur.active .chl-dur-num{color:var(--green)}
+.chl-dur-check{position:absolute;right:12px;top:12px;width:22px;height:22px;border-radius:50%;background:var(--green);color:var(--emerald-deep);display:grid;place-items:center}
+.chl-dur-tag{position:absolute;right:12px;top:12px;font-size:10px;font-weight:600;color:#e6bd7c;background:#d6a45a1f;border:1px solid #d6a45a40;border-radius:99px;padding:3px 8px}
+.chl-cap{margin-top:16px;max-width:280px}
+.chl-summary{display:flex;align-items:center;gap:16px;margin-top:16px;padding:13px 16px;border-radius:12px;background:#8fbf9b10;border:1px dashed #8fbf9b44;font-size:13px;line-height:1.5;color:var(--soft)}
+.chl-summary>span{flex:1;min-width:0}.chl-summary b{color:var(--text)}.chl-summary svg{display:inline;vertical-align:-3px;margin-right:4px;color:var(--sage)}
+.chl-summary .primary-button{flex:none}
+
+.chl-progress{display:flex;align-items:center;gap:16px;margin:4px 0 2px}
+.chl-bar{flex:1;height:6px;border-radius:4px;background:#ffffff10;overflow:hidden}.chl-bar span{display:block;height:100%;background:var(--sage);border-radius:4px;transition:width var(--t-slow) var(--ease)}
+.chl-ratio{font-size:13px;color:var(--muted);white-space:nowrap}.chl-ratio b{font-size:20px;color:var(--green)}.chl-ratio small{font-size:12px}
+.chl-track{list-style:none;margin:6px 0 0;padding:0;display:flex}
+.chl-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;min-width:0;text-align:center}
+.chl-day:not(:last-child):after{content:"";position:absolute;top:26px;left:calc(50% + 32px);right:calc(-50% + 32px);height:2px;background:#ffffff14}
+.chl-day.ok:not(:last-child):after{background:var(--sage)}
+.chl-tile{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;border:1px solid var(--line);background:var(--panel2);color:var(--muted)}
+.chl-day b{font-size:12px;font-weight:600}.chl-day b em{font-style:normal}.chl-day small{font-size:11px;color:var(--muted);margin-top:-3px}
+.chl-day.future b{color:var(--muted)}
+.chl-day.ok .chl-tile{background:#8fbf9b26;border-color:#8fbf9b88;color:var(--sage)}
+.chl-day.today .chl-tile{border:2px solid #e6bd7c;background:#d6a45a1a;color:#e6bd7c;box-shadow:0 0 0 5px #d6a45a14}.chl-day.today b{color:#e6bd7c}
+.chl-day.fail .chl-tile{background:#f871711a;border-color:#f8717180;color:#f87171}.chl-day.fail b{color:#fca5a5}
+.chl-day.goal .chl-tile{border-style:dashed;border-color:#d6a45a66;color:#e6bd7c}.chl-day.goal b{color:#e6bd7c}
+.chl-day.goal.reached .chl-tile{border-style:solid;background:#d6a45a26}
+.chl-track.compact{display:grid;grid-template-columns:repeat(7,1fr);gap:14px 8px}
+.chl-track.compact .chl-day:after{display:none}
+.chl-track.compact .chl-tile{width:44px;height:44px;border-radius:13px}
+.chl-say{margin-top:18px;padding:14px 16px;border-radius:12px;background:#d6a45a12;border:1px solid #d6a45a33;font-size:13.5px;line-height:1.5;color:var(--soft)}
+.chl-say b{color:var(--text)}.chl-say p{margin:3px 0 0}
+.chl-say.won{background:#8fbf9b14;border-color:#8fbf9b44}.chl-say.failed{background:#f8717112;border-color:#f8717140}
+.chl-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted)}
+.chl-legend span{display:inline-flex;align-items:center;gap:6px}.chl-legend i{width:12px;height:12px;border-radius:4px;display:inline-block}
+.chl-legend .ok{background:#8fbf9b66}.chl-legend .today{background:#d6a45a88}.chl-legend .future{background:#ffffff1a;border:1px dashed #ffffff44}.chl-legend .fail{background:#f8717166}
+
+.chl-sec{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin:20px 0 12px;font-size:12px;letter-spacing:1px;color:var(--soft)}.chl-sec span{letter-spacing:0;color:var(--muted)}
+.chl-badges{grid-template-columns:repeat(5,1fr);margin-top:0}
+.chl-badges>div{gap:4px;padding:16px;opacity:.8}
+.chl-badge-ic{width:44px;height:44px;border-radius:13px;background:#ffffff0a;display:grid;place-items:center;font-size:22px!important;margin-bottom:8px;filter:grayscale(.6)}
+.chl-badges strong{font-size:14px!important}.chl-badges small{font-size:12px!important;line-height:1.4;min-height:34px}
+.chl-bprog{height:4px;border-radius:3px;background:#ffffff12;margin-top:8px;overflow:hidden}.chl-bprog span{display:block;height:100%;background:var(--sage)}
+.chl-badges em{font-style:normal;font-size:11px;color:var(--muted);margin-top:3px}
+.chl-badges>div.earned{opacity:1;border-color:#d6a45a66;background:linear-gradient(180deg,#d6a45a14,#d6a45a05)}
+.chl-badges>div.earned .chl-badge-ic{background:#d6a45a22;filter:none}.chl-badges>div.earned em{color:#e6bd7c;font-weight:600}.chl-badges>div.earned .chl-bprog span{background:#e6bd7c}
+
+@media(max-width:900px){.chl-durs{grid-template-columns:repeat(2,1fr)}.chl-badges{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.chl-summary{flex-direction:column;align-items:stretch}.chl-summary .primary-button{justify-content:center}.chl-track:not(.compact){display:grid;grid-template-columns:repeat(4,1fr);gap:14px 6px}.chl-day:after{display:none}.chl-tile{width:44px;height:44px}.chl-progress{flex-direction:column;align-items:stretch;gap:6px}}
+@media(max-width:520px){.chl-badges{grid-template-columns:repeat(2,1fr)}.chl-track.compact{grid-template-columns:repeat(4,1fr)}}
