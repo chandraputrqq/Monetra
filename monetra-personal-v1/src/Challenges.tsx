@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Plus, RotateCcw, Trash2, Flame, Trophy, Target, Check, X, Circle, CalendarDays } from 'lucide-react'
+import { Plus, RotateCcw, Trash2, Flame, Trophy, Target, Check, X, Circle, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getLang } from './i18n'
 import { addDays, challengeBadges, challengeRule, challengeTitle, evaluateChallenge } from './features'
 import type { Challenge, ChallengeKind } from './features'
@@ -26,6 +26,43 @@ const uid = () => Math.random().toString(36).slice(2, 10)
 const fmtDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(getLang() === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'short' })
 const digits = (v: string) => v.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 9)
 const group = (v: string) => (v ? new Intl.NumberFormat('id-ID').format(Number(v)) : '')
+
+
+const PER_PAGE = 7
+function StreakTrack({ days, today, won, failedOn, total, label }: { days: { date: string; state: string }[]; today: string; won: boolean; failedOn?: string; total: number; label: string }) {
+  const pages = Math.ceil(total / PER_PAGE)
+  const focus = (() => {
+    const key = failedOn || today
+    const i = days.findIndex(d => d.date === key)
+    return won ? pages - 1 : Math.max(0, Math.min(pages - 1, Math.floor((i < 0 ? days.filter(d => d.date <= today).length - 1 : i) / PER_PAGE)))
+  })()
+  const [page, setPage] = useState(focus)
+  const [dir, setDir] = useState<'next' | 'prev'>('next')
+  const go = (n: number) => { if (n < 0 || n >= pages || n === page) return; setDir(n > page ? 'next' : 'prev'); setPage(n) }
+  const slice = days.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE)
+  const last = page === pages - 1
+  const doneInPage = slice.filter(d => d.state === 'ok').length
+  const [touch, setTouch] = useState<number | null>(null)
+  return <div className="chl-pager" onTouchStart={e => setTouch(e.touches[0].clientX)} onTouchEnd={e => { if (touch === null) return; const dx = e.changedTouches[0].clientX - touch; if (Math.abs(dx) > 45) go(page + (dx < 0 ? 1 : -1)); setTouch(null) }}>
+    {pages > 1 && <div className="chl-pager-head">
+      <button type="button" className="icon-button" disabled={page === 0} onClick={() => go(page - 1)} aria-label={L('Minggu sebelumnya', 'Previous week')}><ChevronLeft size={16} /></button>
+      <div className="chl-pager-mid"><strong>{L(`Minggu ${page + 1} dari ${pages}`, `Week ${page + 1} of ${pages}`)}</strong><small>{L(`${doneInPage}/${slice.length} hari berhasil minggu ini`, `${doneInPage}/${slice.length} days won this week`)}</small></div>
+      <button type="button" className="icon-button" disabled={last} onClick={() => go(page + 1)} aria-label={L('Minggu berikutnya', 'Next week')}><ChevronRight size={16} /></button>
+    </div>}
+    <ol key={page} className={`chl-track slide-${dir}`} aria-label={label}>
+      {slice.map((d, i) => {
+        const n = page * PER_PAGE + i + 1
+        const cls = d.state === 'todayfail' ? 'fail' : d.state
+        return <li key={d.date} className={`chl-day ${cls}`}>
+          <span className="chl-tile">{d.state === 'ok' ? <Check size={22} strokeWidth={3} /> : d.state === 'today' ? <Flame size={22} /> : d.state === 'fail' || d.state === 'todayfail' ? <X size={22} strokeWidth={3} /> : <Circle size={18} strokeDasharray="3 4" />}</span>
+          <b>{L(`Hari ${n}`, `Day ${n}`)}{d.date === today ? <em> · {L('Hari ini', 'Today')}</em> : null}</b><small>{fmtWeekday(d.date)}</small>
+        </li>
+      })}
+      {last && <li className={`chl-day goal${won ? ' reached' : ''}`}><span className="chl-tile"><Trophy size={22} /></span><b>{L('Selesai!', 'Finish!')}</b><small>{L('Dapat lencana', 'Earn a badge')}</small></li>}
+    </ol>
+    {pages > 1 && <div className="chl-dots-nav" role="tablist">{Array.from({ length: pages }, (_, i) => <button key={i} type="button" role="tab" aria-selected={i === page} aria-label={L(`Minggu ${i + 1}`, `Week ${i + 1}`)} className={i === page ? 'on' : ''} onClick={() => go(i)} />)}</div>}
+  </div>
+}
 
 export function ChallengesPage({ challenges, transactions, today, money, onSave, onDelete }: Props) {
   const [kind, setKind] = useState<ChallengeKind>('nospend')
@@ -98,16 +135,7 @@ export function ChallengesPage({ challenges, transactions, today, money, onSave,
           </div>
         </div>
         <div className="chl-progress"><div className="chl-bar" aria-hidden="true"><span style={{ width: `${Math.round(r.doneDays / c.days * 100)}%` }} /></div><span className="chl-ratio"><b>{r.doneDays}</b> / {c.days} <small>{L('hari berhasil', 'days won')}</small></span></div>
-        <ol className={`chl-track${c.days > 7 ? ' compact' : ''}`} aria-label={L(`${r.doneDays} dari ${c.days} hari berhasil`, `${r.doneDays} of ${c.days} days succeeded`)}>
-          {r.days.map((d, i) => {
-            const cls = d.state === 'todayfail' ? 'fail' : d.state
-            return <li key={d.date} className={`chl-day ${cls}`}>
-              <span className="chl-tile">{d.state === 'ok' ? <Check size={22} strokeWidth={3} /> : d.state === 'today' ? <Flame size={22} /> : d.state === 'fail' || d.state === 'todayfail' ? <X size={22} strokeWidth={3} /> : <Circle size={18} strokeDasharray="3 4" />}</span>
-              <b>{L(`Hari ${i + 1}`, `Day ${i + 1}`)}{d.date === today ? <em> · {L('Hari ini', 'Today')}</em> : null}</b><small>{fmtWeekday(d.date)}</small>
-            </li>
-          })}
-          <li className={`chl-day goal${r.status === 'won' ? ' reached' : ''}`}><span className="chl-tile"><Trophy size={22} /></span><b>{L('Selesai!', 'Finish!')}</b><small>{L('Dapat lencana', 'Earn a badge')}</small></li>
-        </ol>
+        <StreakTrack days={r.days} today={today} won={r.status === 'won'} failedOn={r.failedOn} total={c.days} label={L(`${r.doneDays} dari ${c.days} hari berhasil`, `${r.doneDays} of ${c.days} days succeeded`)} />
         {(() => {
           const t = r.days.find(d => d.date === today)
           const [tone, ttl, txt] = r.status === 'won'
