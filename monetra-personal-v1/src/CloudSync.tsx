@@ -17,9 +17,9 @@ export type CloudApi = {
   syncNow: () => Promise<void>
 }
 
-const KEYS = ['transactions', 'budgets', 'goals', 'recurring', 'debts']
+const KEYS = ['transactions', 'budgets', 'goals', 'recurring', 'debts', 'challenges']
 const hasRecords = (s: any) => !!s && KEYS.some(k => Array.isArray(s[k]) && s[k].length > 0)
-const normalize = (d: any) => ({ transactions: [], budgets: [], goals: [], recurring: [], debts: [], currency: 'IDR', demo: false, ...(d || {}) })
+const normalize = (d: any) => ({ transactions: [], budgets: [], goals: [], recurring: [], debts: [], challenges: [], currency: 'IDR', demo: false, ...(d || {}) })
 // JSON dengan urutan key tetap: jsonb di Postgres mengurutkan ulang key, jadi perbandingan harus stabil.
 const stable = (v: any): string => {
   if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']'
