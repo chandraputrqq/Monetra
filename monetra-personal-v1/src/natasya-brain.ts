@@ -2,6 +2,8 @@
 // Everything is derived from the MONETRA app state that is passed in (transactions, budgets, goals, debts).
 import { getLang } from './i18n'
 import { pickQuote } from './reminders'
+import { evaluateChallenge, challengeTitle } from './features'
+import type { Challenge } from './features'
 
 export type TxType = 'income' | 'expense'
 export type Tx = { id: string; name: string; amount: number; type: TxType; category: string; date: string; notes?: string; recurringId?: string }
@@ -16,6 +18,7 @@ export type Ctx = {
   today: string            // YYYY-MM-DD
   money: (n: number) => string
   expenseCats: string[]; incomeCats: string[]
+  challenges?: Challenge[]
 }
 export type BotResult = { text?: string; draft?: Draft; followUps?: string[] }
 
@@ -230,10 +233,16 @@ const GUIDES: Guide[] = [
     benefit: ['Kamu langsung tahu posisi uangmu tanpa membuka banyak menu.', 'You see where your money stands without opening several menus.']
   },
   {
-    re: /scanner|scan|pindai|pemindai|struk|receipt|ocr/i, title: ['Pemindai Pintar (Smart Scanner)', 'Smart Scanner'],
-    what: ['Mengubah foto struk menjadi transaksi. Teksnya dibaca (OCR) langsung di browser, tanpa dikirim ke server.', 'Turns a receipt photo into a transaction. Text is read (OCR) in your browser, nothing is uploaded.'],
-    steps: [['Buka menu Pemindai Pintar, lalu pilih “Scan with Camera” atau “Upload Image”.', 'Open Smart Scanner, then choose “Scan with Camera” or “Upload Image”.'], ['Tunggu proses membaca gambar (scan pertama bisa lebih lama karena data OCR diunduh).', 'Wait while the image is read (the first scan can take longer while OCR data downloads).'], ['Periksa nama toko, tanggal, jenis, kategori, dan jumlah. Hasil OCR bisa keliru, jadi koreksi bila perlu.', 'Check merchant, date, type, category, and amount. OCR can misread, so fix anything wrong.'], ['Tekan “Confirm & Save”. Jika mirip transaksi yang sudah ada, kamu akan diminta konfirmasi dulu.', 'Press “Confirm & Save”. If it looks like an existing record you will be asked to confirm first.']],
-    benefit: ['Mencatat lebih cepat dan tidak ada yang tersimpan tanpa persetujuanmu.', 'Faster logging, and nothing is saved without your approval.']
+    re: /tantangan|challenge|streak|lencana|badge/i, title: ['Tantangan Hemat', 'Saving Challenges'],
+    what: ['Tantangan harian seperti “7 hari tanpa belanja”. Progresnya dihitung otomatis dari transaksi yang kamu catat, lengkap dengan streak dan lencana.', 'Daily challenges like “7 no-spend days”. Progress is counted automatically from your transactions, with streaks and badges.'],
+    steps: [['Buka menu Tantangan Hemat, lalu pilih jenis tantangan dan durasinya.', 'Open Saving Challenges, then pick a type and duration.'], ['Catat transaksi seperti biasa. Hari yang aman ditandai otomatis.', 'Log transactions as usual. Safe days are marked automatically.'], ['Kalau gagal, tekan “Mulai ulang” untuk mencoba lagi dari hari ini.', 'If you slip, press “Restart” to try again from today.']],
+    benefit: ['Kebiasaan hemat jadi seperti game kecil, jadi lebih mudah dijaga.', 'Saving becomes a small game, which makes the habit easier to keep.']
+  },
+  {
+    re: /privasi|privacy|sembunyi|samarkan|hide (my )?(numbers|amounts|balance)|ikon mata|eye icon/i, title: ['Mode Privasi', 'Privacy Mode'],
+    what: ['Tombol mata di bagian atas menyamarkan semua nominal uang menjadi titik-titik, termasuk jawaban Natasya.', 'The eye button at the top masks every money amount as dots, including Natasya’s answers.'],
+    steps: [['Tekan ikon mata di pojok kanan atas.', 'Press the eye icon at the top right.'], ['Tekan lagi untuk menampilkan angka kembali.', 'Press again to show the numbers.']],
+    benefit: ['Aman dibuka di tempat umum tanpa orang lain melihat saldomu.', 'Safe to open in public without others seeing your balance.']
   },
   {
     re: /transaksi|transaction|riwayat|history|catat|mencatat|recurring|berulang|rutin/i, title: ['Transaksi', 'Transactions'],
@@ -310,7 +319,7 @@ export function guideFor(q: string): BotResult | null {
         ...GUIDES.map(g => `• **${tr(g.title[0], g.title[1])}**: ${tr(g.what[0], g.what[1]).split(/[:.] /)[0].replace(/\.$/, '')}`),
         tr('• **Natasya**: chat ini. Mencatat lewat draf + tombol Simpan, analisis, dan saran.', '• **Natasya**: this chat. Log via draft + Save button, analysis, and advice.')
       ].join('\n'),
-      followUps: [tr('Apa fungsi Analytics?', 'What does Analytics do?'), tr('Bagaimana cara menggunakan Smart Scanner?', 'How do I use Smart Scanner?'), tr('Bagaimana cara mengatur budget?', 'How do I set a budget?')]
+      followUps: [tr('Apa fungsi Analytics?', 'What does Analytics do?'), tr('Apa itu tantangan hemat?', 'What are saving challenges?'), tr('Bagaimana cara mengatur budget?', 'How do I set a budget?')]
     }
   }
   return null
@@ -489,6 +498,64 @@ function compareMonths(c: Ctx): BotResult {
   return { text: lines.join('\n'), followUps: [tr('Bagaimana mengurangi pengeluaran?', 'How can I reduce spending?')] }
 }
 
+function forecastAnswer(c: Ctx): BotResult {
+  const d = derive(c); const nd = needData(d); if (nd) return nd
+  if (!d.isCurrent) return { text: tr('Prediksi hanya masuk akal untuk bulan yang sedang berjalan. Pilih bulan ini di dasbor, lalu tanya lagi ya.', 'A forecast only makes sense for the current month. Select this month on the dashboard, then ask again.'), followUps: [tr('Bandingkan dengan bulan lalu', 'Compare with last month')] }
+  const lines: string[] = [tr('🔮 **Prediksi akhir bulan**', '🔮 **End-of-month forecast**')]
+  lines.push(tr(`Hari ke-${d.dayOfMonth} dari ${d.daysInMonth}. Rata-rata belanjamu **${c.money(d.dailyAvg)}/hari**.`, `Day ${d.dayOfMonth} of ${d.daysInMonth}. You are spending **${c.money(d.dailyAvg)}/day** on average.`))
+  lines.push(tr(`Kalau pola ini berlanjut, total pengeluaran bulan ini sekitar **${c.money(d.projected)}**.`, `If this pace continues, total spending this month will be about **${c.money(d.projected)}**.`))
+  let remaining = 0, basis = ''
+  if (d.income > 0) {
+    const endBal = d.income - d.projected
+    remaining = d.income - d.expenses
+    basis = 'income'
+    lines.push(endBal >= 0
+      ? tr(`Perkiraan sisa uang di akhir bulan: **${c.money(endBal)}** ✅`, `Estimated money left at month end: **${c.money(endBal)}** ✅`)
+      : tr(`Perkiraan kekurangan di akhir bulan: **${c.money(Math.abs(endBal))}** ⚠️`, `Estimated shortfall at month end: **${c.money(Math.abs(endBal))}** ⚠️`))
+    if (endBal < 0 && d.dailyAvg > 0 && remaining > 0) {
+      const runOut = Math.min(d.daysInMonth, d.dayOfMonth + Math.floor(remaining / d.dailyAvg))
+      lines.push(tr(`Uang pemasukan bulan ini diperkirakan habis sekitar tanggal **${runOut}**.`, `This month’s income is on track to run out around the **${runOut}th**.`))
+    }
+  } else if (d.allocated > 0) {
+    remaining = d.allocated - d.expenses
+    basis = 'budget'
+    lines.push(tr('Belum ada pemasukan tercatat bulan ini, jadi kupakai total anggaran sebagai batas.', 'No income logged this month, so I use your total budget as the limit.'))
+  } else {
+    lines.push(tr('Catat pemasukan atau pasang anggaran supaya aku bisa menghitung sisa uangmu di akhir bulan.', 'Log your income or set a budget so I can work out what you will have left.'))
+  }
+  if (d.allocated > 0 && d.expenses >= d.allocated) {
+    lines.push(tr(`Anggaran total ${c.money(d.allocated)} sudah terlampaui bulan ini.`, `Your ${c.money(d.allocated)} total budget has already been exceeded this month.`))
+  } else if (d.allocated > 0 && d.projected > d.allocated && d.dailyAvg > 0) {
+    const day = Math.max(d.dayOfMonth, Math.ceil(d.allocated / d.dailyAvg))
+    lines.push(tr(`Anggaran total ${c.money(d.allocated)} diperkirakan terlampaui sekitar tanggal **${Math.min(day, d.daysInMonth)}**.`, `Your ${c.money(d.allocated)} total budget is likely to be exceeded around the **${Math.min(day, d.daysInMonth)}th**.`))
+  }
+  if (basis && d.daysLeft > 0) {
+    if (remaining > 0) lines.push('', tr(`💡 Agar aman sampai akhir bulan, batasi belanja ke **${c.money(remaining / d.daysLeft)}/hari** untuk ${d.daysLeft} hari ke depan.`, `💡 To stay safe until month end, keep spending to **${c.money(remaining / d.daysLeft)}/day** for the next ${d.daysLeft} days.`))
+    else lines.push('', tr('💡 Sisa uangmu sudah habis. Tahan belanja non-esensial dan prioritaskan kebutuhan pokok.', '💡 You have no money left this month. Hold off on non-essentials and cover the basics only.'))
+  }
+  if (d.dayOfMonth < 5) lines.push(tr('_Catatan: data baru beberapa hari, jadi prediksinya masih kasar._', '_Note: only a few days of data, so this forecast is still rough._'))
+  return { text: lines.join('\n'), followUps: [tr('Bagaimana mengurangi pengeluaran?', 'How can I reduce spending?'), tr('Buatkan strategi keuangan bulan ini', 'Plan my finances this month')] }
+}
+
+function challengeAnswer(c: Ctx): BotResult {
+  const list = c.challenges || []
+  if (!list.length) return { text: tr('Kamu belum punya tantangan hemat. Buka menu **Tantangan Hemat** dan mulai satu, misalnya “7 hari tanpa belanja”. Aku bantu pantau tiap hari 💪', 'You have no saving challenges yet. Open **Saving Challenges** and start one, like “7 no-spend days”. I will help you track it every day 💪'), followUps: [tr('Apa itu tantangan hemat?', 'What are saving challenges?')] }
+  const res = list.map(ch => ({ ch, r: evaluateChallenge(ch, c.transactions, c.today) }))
+  const active = res.filter(x => x.r.status === 'active'), won = res.filter(x => x.r.status === 'won').length, failed = res.filter(x => x.r.status === 'failed').length
+  const lines = [tr('🏆 **Tantangan hemat kamu**', '🏆 **Your saving challenges**')]
+  active.forEach(({ ch, r }) => {
+    const today = r.days.find(x => x.date === c.today)
+    const flag = today && today.state === 'today' ? tr('hari ini masih aman ✅', 'today is still safe ✅') : tr('mulai besok ya', 'starts later')
+    lines.push(`• **${challengeTitle(ch, c.money)}**: ${tr(`hari ke-${r.dayNumber}/${ch.days}, streak ${r.streak} hari, ${flag}`, `day ${r.dayNumber}/${ch.days}, ${r.streak}-day streak, ${flag}`)}`)
+  })
+  if (!active.length) lines.push(tr('Belum ada tantangan yang sedang berjalan.', 'No challenge is running right now.'))
+  lines.push(tr(`Selesai: ${won} · Gagal: ${failed}`, `Finished: ${won} · Failed: ${failed}`))
+  const lead = active.sort((a, b) => b.r.streak - a.r.streak)[0]
+  if (lead) lines.push('', tr(`💡 Pertahankan! Tinggal ${lead.ch.days - lead.r.dayNumber} hari lagi untuk menyelesaikan tantangan terdekatmu.`, `💡 Keep going! ${lead.ch.days - lead.r.dayNumber} more days to finish your closest challenge.`))
+  else lines.push('', tr('💡 Mau mulai yang baru? Buka menu Tantangan Hemat.', '💡 Want to start a new one? Open Saving Challenges.'))
+  return { text: lines.join('\n'), followUps: [tr('Prediksi sisa uang bulan ini', 'Forecast my money this month'), tr('Beri aku semangat!', 'Cheer me on!')] }
+}
+
 function balanceAnswer(c: Ctx): BotResult {
   const d = derive(c); const nd = needData(d); if (nd) return nd
   const tail = d.balance < 0 ? tr('Saldomu negatif bulan ini. Kurangi pengeluaran dan hindari menambah utang.', 'Your balance is negative this month. Cut spending and avoid new debt.') : d.savingsRate >= 20 ? tr('Bagus, sisa dananya sehat. Sisihkan sebagian untuk tabungan.', 'Nice, a healthy surplus. Set part of it aside as savings.') : tr('Sisa dana cukup tipis, jaga laju pengeluaranmu.', 'The surplus is thin, watch your spending pace.')
@@ -658,18 +725,22 @@ export function answerQuestion(c: Ctx, raw: string): BotResult {
   const g = guideFor(l); if (g) return g
 
   // Transaction draft: an amount, not phrased as a question or a savings/planning request.
-  if (amt && amt.amount > 0 && !QUESTION.test(q) && !/target|nabung|menabung|simulasi|simulate|savings?\b|save\b/i.test(l)) {
+  // Angka durasi seperti "7 hari" atau "2 weeks" bukan nominal uang.
+  const amtTx = parseAmount(q.replace(/\b\d+\s*(hari|minggu|bulan|tahun|jam|menit|days?|weeks?|months?|years?|hours?|minutes?)\b/gi, ' '))
+  if (amtTx && amtTx.amount > 0 && !QUESTION.test(q) && !/target|nabung|menabung|simulasi|simulate|savings?\b|save\b/i.test(l)) {
     const type: TxType = /gaji|terima|dapat|bonus|salary|received|income|earned|freelance|masuk/i.test(q) ? 'income' : 'expense'
     const date = /kemarin|yesterday/i.test(q) ? isoOf(new Date(Date.now() - 864e5)) : c.today
-    let name = q.replace(amt.matched, ' ').replace(/\b(tadi|pagi|siang|malam|sore|kemarin|barusan|yesterday|today|hari ini|this morning|just now|rp|idr)\b/gi, ' ').replace(/\s+/g, ' ').trim()
+    let name = q.replace(amtTx.matched, ' ').replace(/\b(tadi|pagi|siang|malam|sore|kemarin|barusan|yesterday|today|hari ini|this morning|just now|rp|idr)\b/gi, ' ').replace(/\s+/g, ' ').trim()
     name = name ? name.charAt(0).toUpperCase() + name.slice(1) : tr('Transaksi', 'Transaction')
-    return { draft: { name, amount: amt.amount, type, category: guessCategory(q, type, c.expenseCats, c.incomeCats), date } }
+    return { draft: { name, amount: amtTx.amount, type, category: guessCategory(q, type, c.expenseCats, c.incomeCats), date } }
   }
 
   if (/(evaluasi|evaluate|review|progres|progress|cek|check).*(target|goal|tabungan|saving)|target tabungan saya|my (savings )?goals?/i.test(l)) return goalsEval(c)
   if (/utang|hutang|piutang|cicil|debt|loan|pinjam/i.test(l)) return debtAdvice(c, q)
   if (amt && /nabung|menabung|tabung|target|simulasi|simulate|save|saving/i.test(l)) { const s = savingsSim(c, q); if (s) return s }
   if (/(meningkatkan|tingkatkan|menambah|naikkan|memperbesar|increase|improve|boost|grow).*(tabungan|menabung|saving)|kemampuan menabung|berapa.*(bisa )?(nabung|menabung|save)|saving capacity/i.test(l)) return savingsImprove(c)
+  if (/tantangan|challenge|streak|lencana|badge/i.test(l)) return challengeAnswer(c)
+  if (/prediksi|perkiraan|proyeksi|forecast|predict|akhir bulan|end of (the )?month|cukup (sampai|untuk)|will (my )?(money|it) last|habis kapan|uangku (habis|cukup)/i.test(l)) return forecastAnswer(c)
   if (/sehat|health|skor|score/i.test(l)) return healthAnswer(c)
   if (/strateg|rencana|plan\b|planning|buatkan.*bulan|make.*month/i.test(l)) return monthStrategy(c)
   if (/mingguan|minggu ini|seminggu|weekly|this week|7 hari|7 days/i.test(l)) return weeklyEval(c)
