@@ -70,18 +70,27 @@ export function evaluateChallenge(c: Challenge, all: Tx[], today: string): Chall
   return { status, days, streak, doneDays, failedOn, dayNumber, end }
 }
 
-export type Badge = { key: string; icon: string; name: string; hint: string; earned: boolean }
+export type Badge = { key: string; icon: string; name: string; hint: string; earned: boolean; cur: number; tot: number; group: 'streak' | 'win' }
 export function challengeBadges(list: Challenge[], all: Tx[], today: string): Badge[] {
-  const results = list.map(c => evaluateChallenge(c, all, today))
-  const won = results.filter(r => r.status === 'won').length
-  const best = results.reduce((m, r) => Math.max(m, r.streak), 0)
+  const results = list.map(c => ({ c, r: evaluateChallenge(c, all, today) }))
+  const wonList = results.filter(x => x.r.status === 'won')
+  const won = wonList.length
+  const best = results.reduce((m, x) => Math.max(m, x.r.streak), 0)
+  const capWins = wonList.filter(x => x.c.kind === 'dailycap').length
+  const kindsWon = new Set(wonList.map(x => x.c.kind)).size
+  const mk = (key: string, icon: string, name: string, hint: string, cur: number, tot: number, group: Badge['group']): Badge =>
+    ({ key, icon, name, hint, cur: Math.min(cur, tot), tot, earned: cur >= tot, group })
   return [
-    { key: 'first', icon: '🌱', name: L('Langkah Pertama', 'First Step'), hint: L('Mulai tantangan pertamamu.', 'Start your first challenge.'), earned: list.length > 0 },
-    { key: 's3', icon: '🔥', name: L('Streak 3 Hari', '3-Day Streak'), hint: L('Berhasil 3 hari berturut-turut.', 'Succeed 3 days in a row.'), earned: best >= 3 },
-    { key: 's7', icon: '⚡', name: L('Streak 7 Hari', '7-Day Streak'), hint: L('Berhasil 7 hari berturut-turut.', 'Succeed 7 days in a row.'), earned: best >= 7 },
-    { key: 'w1', icon: '🏅', name: L('Pemenang', 'Winner'), hint: L('Selesaikan 1 tantangan.', 'Finish 1 challenge.'), earned: won >= 1 },
-    { key: 'w3', icon: '🏆', name: L('Hemat Sejati', 'True Saver'), hint: L('Selesaikan 3 tantangan.', 'Finish 3 challenges.'), earned: won >= 3 },
-    { key: 's30', icon: '👑', name: L('Streak 30 Hari', '30-Day Streak'), hint: L('Berhasil 30 hari berturut-turut.', 'Succeed 30 days in a row.'), earned: best >= 30 }
+    mk('first', '🌱', L('Langkah Pertama', 'First Step'), L('Mulai tantangan pertamamu.', 'Start your first challenge.'), list.length, 1, 'streak'),
+    mk('s3', '🔥', L('Streak 3 Hari', '3-Day Streak'), L('Berhasil 3 hari berturut-turut.', 'Succeed 3 days in a row.'), best, 3, 'streak'),
+    mk('s7', '⚡', L('Streak 7 Hari', '7-Day Streak'), L('Berhasil 7 hari berturut-turut.', 'Succeed 7 days in a row.'), best, 7, 'streak'),
+    mk('s14', '💪', L('Streak 14 Hari', '14-Day Streak'), L('Berhasil 14 hari berturut-turut.', 'Succeed 14 days in a row.'), best, 14, 'streak'),
+    mk('s30', '👑', L('Streak 30 Hari', '30-Day Streak'), L('Berhasil 30 hari berturut-turut.', 'Succeed 30 days in a row.'), best, 30, 'streak'),
+    mk('w1', '🏅', L('Pemenang', 'Winner'), L('Selesaikan 1 tantangan.', 'Finish 1 challenge.'), won, 1, 'win'),
+    mk('w3', '🏆', L('Hemat Sejati', 'True Saver'), L('Selesaikan 3 tantangan.', 'Finish 3 challenges.'), won, 3, 'win'),
+    mk('w5', '💎', L('Legenda Hemat', 'Saving Legend'), L('Selesaikan 5 tantangan.', 'Finish 5 challenges.'), won, 5, 'win'),
+    mk('cap', '🎯', L('Penjaga Batas', 'Limit Keeper'), L('Menangkan 1 tantangan Batas Harian.', 'Win 1 Daily Limit challenge.'), capWins, 1, 'win'),
+    mk('all', '🌟', L('Serba Bisa', 'All-Rounder'), L('Menangkan ketiga jenis tantangan.', 'Win all three challenge types.'), kindsWon, 3, 'win')
   ]
 }
 
