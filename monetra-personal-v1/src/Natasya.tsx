@@ -4,13 +4,15 @@ import { Sparkles, X, ArrowUp, Trash2 } from 'lucide-react'
 import { t } from './i18n'
 import { answerQuestion, dailyInsight, greeting, postSaveInsight } from './natasya-brain'
 import type { BotResult, Budget, DebtLite, Draft, GoalLite, Tx } from './natasya-brain'
+import type { Challenge } from './features'
 
 type Msg = { id: number; from: 'bot' | 'me'; text?: string; draft?: Draft; status?: 'pending' | 'saved' | 'cancelled'; followUps?: string[] }
 
 const QUICK: { icon: string; key: string }[] = [
   { icon: '👋', key: 'n.q9' }, { icon: '✨', key: 'n.q10' },
   { icon: '💡', key: 'n.q1' }, { icon: '📊', key: 'n.q2' }, { icon: '💰', key: 'n.q3' }, { icon: '🎯', key: 'n.q4' },
-  { icon: '⚠️', key: 'n.q5' }, { icon: '📅', key: 'n.q6' }, { icon: '📉', key: 'n.q7' }, { icon: '❓', key: 'n.q8' }
+  { icon: '⚠️', key: 'n.q5' }, { icon: '📅', key: 'n.q6' }, { icon: '📉', key: 'n.q7' },
+  { icon: '🔮', key: 'n.q11' }, { icon: '🆚', key: 'n.q12' }, { icon: '🗓️', key: 'n.q13' }, { icon: '🏆', key: 'n.q14' }, { icon: '❓', key: 'n.q8' }
 ]
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 // 1.2 to 2 seconds: ~1.5s by default, a little longer for long answers (never feels sluggish).
@@ -23,7 +25,7 @@ const RichText = ({ text }: { text: string }) => <>{text.split('\n').map((line, 
 
 type ChatProps = {
   open: boolean; onClose: () => void; onOpen: () => void
-  transactions: Tx[]; budgets: Budget[]; goals?: GoalLite[]; debts?: DebtLite[]; month: string
+  transactions: Tx[]; budgets: Budget[]; goals?: GoalLite[]; debts?: DebtLite[]; challenges?: Challenge[]; month: string
   money: (n: number) => string
   expenseCats: string[]; incomeCats: string[]
   onSave: (tx: Tx) => void
@@ -52,7 +54,7 @@ export function NatasyaChat(props: ChatProps) {
 
   const ctx = useCallback(() => {
     const p = propsRef.current
-    return { transactions: p.transactions, budgets: p.budgets, goals: p.goals || [], debts: p.debts || [], month: p.month, today: todayIso(), money: p.money, expenseCats: p.expenseCats, incomeCats: p.incomeCats }
+    return { transactions: p.transactions, budgets: p.budgets, goals: p.goals || [], debts: p.debts || [], challenges: p.challenges || [], month: p.month, today: todayIso(), money: p.money, expenseCats: p.expenseCats, incomeCats: p.incomeCats }
   }, [])
 
   const cancelPending = useCallback(() => {
