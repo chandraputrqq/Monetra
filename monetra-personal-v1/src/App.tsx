@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  PieChart, Pie, Cell, BarChart, Bar, Legend
+  PieChart, Pie, Cell, Sector, BarChart, Bar, Legend
 } from 'recharts'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -56,7 +56,7 @@ const NAV_GROUPS: { key: string; items: Page[] }[] = [
 const PRIMARY_MOBILE: Page[] = ['Dashboard','Transactions','Monthly Budget','Savings Goals']
 type ThemeMode = 'light' | 'dark' | 'auto'
 const resolveTheme = (m: ThemeMode): 'light' | 'dark' => m === 'auto' ? ((h => h >= 6 && h < 18)(new Date().getHours()) ? 'light' : 'dark') : m
-const COLORS = ['#34d399','#2dd4bf','#10b981','#d6a45a','#6ee7b7','#38bdf8','#a3e635','#94a3b8','#f0abfc','#fb923c']
+const COLORS = ['#34d399','#fbbf24','#38bdf8','#f472b6','#a78bfa','#fb7185','#2dd4bf','#fb923c','#818cf8','#a3e635']
 const KEY = 'monetra-v1'
 // Teks bahasa & label kategori hanya untuk tampilan; nilai kategori yang tersimpan tidak berubah.
 const Lx = (id: string, en: string) => getLang() === 'id' ? id : en
@@ -439,6 +439,57 @@ function ChartTip({active,payload,label}:any) {
   if(!active||!payload?.length)return null
   return <div className="chart-tooltip"><span>{label}</span>{payload.map((p:any)=><strong key={p.dataKey}>{p.name||p.dataKey}: {money(p.value)}</strong>)}</div>
 }
+function PieTip({active,payload,total}:any) {
+  if (!active || !payload?.length) return null
+  const d = payload[0].payload
+  return <div className="pie-tip" style={{['--c' as any]:d.color}}><i/><div><strong>{catLabel(d.name)}</strong><span>{money(d.value)} · {total?(d.value/total*100).toFixed(1):0}%</span></div></div>
+}
+// Donut berwarna: sorot saat hover, klik irisan / baris legenda -> popup detail kategori.
+function PieWithPopup({data,total,txs,centerLabel,large,full}:{data:any[],total:number,txs:Transaction[],centerLabel:string,large?:boolean,full?:boolean}) {
+  const [hover,setHover] = useState<number|undefined>(undefined)
+  const [sel,setSel] = useState<string|null>(null)
+  useEffect(()=>{
+    if (!sel) return
+    const onKey = (e:KeyboardEvent)=>{ if (e.key==='Escape') setSel(null) }
+    window.addEventListener('keydown',onKey); return ()=>window.removeEventListener('keydown',onKey)
+  },[sel])
+  const active = hover!==undefined ? data[hover] : null
+  const cur = sel ? data.find((d:any)=>d.name===sel) : null
+  const rows = cur ? txs.filter(x=>x.type==='expense'&&x.category===cur.name).sort((a,b)=>b.date.localeCompare(a.date)) : []
+  const pct = cur&&total ? cur.value/total*100 : 0
+  const biggest = rows.reduce((m,x)=>Math.max(m,x.amount),0)
+  const dateLabel = (iso:string)=>new Date(iso+'T00:00:00').toLocaleDateString(getLang()==='id'?'id-ID':'en-US',{day:'numeric',month:'short'})
+  const legend = full ? data : data.slice(0,4)
+  return <>
+    <div className={`donut-wrap ${large?'large-donut':''}`}><ResponsiveContainer width="100%" height="100%"><PieChart>
+      <Pie data={data} dataKey="value" nameKey="name" innerRadius={large?'65%':'68%'} outerRadius="86%" paddingAngle={3} stroke="none" cornerRadius={4}
+        activeIndex={hover} activeShape={(p:any)=><Sector {...p} outerRadius={p.outerRadius+6}/>}
+        onMouseEnter={(_:any,i:number)=>setHover(i)} onMouseLeave={()=>setHover(undefined)} onClick={(d:any)=>setSel(d.name)}>
+        {data.map((d:any)=><Cell key={d.name} fill={d.color} style={{cursor:'pointer',outline:'none'}}/>)}
+      </Pie><Tooltip content={<PieTip total={total}/>}/></PieChart></ResponsiveContainer>
+      <div className="donut-center">{active?<><strong style={{color:active.color}}>{shortMoney(active.value)}</strong><span>{catLabel(active.name)}</span></>:<><strong>{shortMoney(total)}</strong><span>{centerLabel}</span></>}</div>
+    </div>
+    <div className={full?'analytics-category-list':'category-legend'}>{legend.map((c:any)=>full
+      ? <div key={c.name} className="pie-row" role="button" tabIndex={0} onClick={()=>setSel(c.name)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')setSel(c.name)}}><span><i style={{background:c.color}}/>{catLabel(c.name)}</span><strong>{money(c.value)}</strong><em>{total?`${(c.value/total*100).toFixed(1)}%`:''}</em></div>
+      : <div key={c.name} className="pie-row" role="button" tabIndex={0} onClick={()=>setSel(c.name)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')setSel(c.name)}}><span><i style={{background:c.color}}/>{catLabel(c.name)}</span><strong>{Math.round(total?c.value/total*100:0)}%</strong></div>)}</div>
+    <p className="pie-hint">{Lx('Ketuk irisan atau kategori untuk melihat detail','Tap a slice or category for details')}</p>
+    {cur&&<div className="modal-backdrop pie-backdrop" onClick={()=>setSel(null)}><div className="modal pie-pop" role="dialog" aria-modal="true" aria-label={catLabel(cur.name)} style={{['--c' as any]:cur.color}} onClick={e=>e.stopPropagation()} key={cur.name}>
+      <button className="icon-button pie-pop-close" onClick={()=>setSel(null)} aria-label={tr("Close menu")}><X size={16}/></button>
+      <div className="pie-pop-hero">
+        <div className="pie-ring" style={{background:`conic-gradient(${cur.color} ${pct*3.6}deg,var(--ring-track) 0)`}}><div><strong>{pct.toFixed(0)}%</strong><span>{Lx('dari total','of total')}</span></div></div>
+        <div><span className="panel-kicker">{Lx('KATEGORI','CATEGORY')}</span><h2>{catLabel(cur.name)}</h2><div className="pie-amount">{money(cur.value)}</div></div>
+      </div>
+      <div className="pie-stats">
+        <div><span>{Lx('Transaksi','Transactions')}</span><strong>{rows.length}</strong></div>
+        <div><span>{Lx('Rata-rata','Average')}</span><strong>{shortMoney(rows.length?cur.value/rows.length:0)}</strong></div>
+        <div><span>{Lx('Terbesar','Largest')}</span><strong>{shortMoney(biggest)}</strong></div>
+      </div>
+      <div className="pie-list-title">{Lx('Transaksi terbaru','Latest transactions')}</div>
+      <div className="pie-list">{rows.slice(0,4).map((x,i)=><div key={x.id} style={{animationDelay:`${80+i*55}ms`}}><i/><div><strong>{x.name}</strong><span>{dateLabel(x.date)}</span></div><b>{money(x.amount)}</b></div>)}</div>
+      <div className="pie-others">{data.filter((d:any)=>d.name!==cur.name).map((d:any)=><button key={d.name} style={{['--c' as any]:d.color}} onClick={()=>setSel(d.name)}><i/>{catLabel(d.name)}</button>)}</div>
+    </div></div>}
+  </>
+}
 function Dashboard(p:any) {
   const {month,setMonth,income,expenses,balance,savingsRate,totalSaved,utilization,allocated,categoryData,monthlyData,transactions,highestCategory,expenseChange,budgets,onAdd,onNavigate,onEdit,onChat,recap,chlActive}=p
   return <div className="page-stack">
@@ -456,7 +507,7 @@ function Dashboard(p:any) {
         <div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyData} barGap={7}><CartesianGrid stroke="#ffffff0c" vertical={false}/><XAxis dataKey="month" tick={{fill:'#777f77',fontSize:11}} axisLine={false} tickLine={false}/><YAxis tickFormatter={shortMoney} tick={{fill:'#777f77',fontSize:10}} axisLine={false} tickLine={false} width={54}/><Tooltip content={<ChartTip/>} cursor={{fill:'#ffffff08'}}/><Bar dataKey="income" name="Income" fill="#34d399" radius={[4,4,0,0]} maxBarSize={18}/><Bar dataKey="expenses" name="Expenses" fill="#d6a45a" radius={[4,4,0,0]} maxBarSize={18}/></BarChart></ResponsiveContainer></div>
       </section>
       <section className="panel spending-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{t('p.mix')}</span><h2>{t('p.where')}</h2></div><button className="icon-button subtle" onClick={()=>onNavigate('Analytics')} aria-label={tr("More analytics")}><ArrowUpRight size={16}/></button></div>
-        {categoryData.length?<><div className="donut-wrap"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="name" innerRadius="68%" outerRadius="91%" paddingAngle={3} stroke="none">{categoryData.map((d:any)=><Cell key={d.name} fill={d.color}/>)}</Pie><Tooltip formatter={(v:any)=>money(v)}/></PieChart></ResponsiveContainer><div className="donut-center"><strong>{shortMoney(expenses)}</strong><span>{tr("Total spent")}</span></div></div><div className="category-legend">{categoryData.slice(0,4).map((c:any)=><div key={c.name}><span><i style={{background:c.color}}/>{catLabel(c.name)}</span><strong>{Math.round(c.value/expenses*100)}%</strong></div>)}</div></>:<EmptyChart text="Add expenses to see your spending mix."/>}
+        {categoryData.length?<PieWithPopup data={categoryData} total={expenses} txs={transactions} centerLabel={tr("Total spent")}/>:<EmptyChart text="Add expenses to see your spending mix."/>}
       </section>
       <section className="panel budget-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{t('p.plan')}</span><h2>{t('p.pulse')}</h2></div><button className="text-link" onClick={()=>onNavigate('Monthly Budget')}>{t('p.manage')} <ArrowUpRight size={14}/></button></div>
         <div className="budget-total"><strong>{money(expenses)}</strong><span>{Lx('terpakai','spent')} {allocated?`${Lx('dari','of')} ${money(allocated)}`:`· ${Lx('belum ada anggaran','no budget set')}`}</span></div>
@@ -532,7 +583,7 @@ function AnalyticsPage({categoryData,monthlyData,month,setMonth,transactions}:an
   const trend=monthlyData.filter((m:any)=>m.expenses>0)
   return <div className="page-stack"><PageHeading eyebrow={tr("PATTERNS, NOT GUESSES")} title={tr("Financial analytics")} description={tr("Understand the rhythm of your money through your recorded activity.")} action={<MonthControl month={month} setMonth={setMonth}/>}/>
     <div className="analytics-grid"><section className="panel analytics-wide page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("SIX-MONTH VIEW")}</span><h2>{tr("Income & expenses")}</h2></div><span className="chart-note">{tr("IDR · monthly")}</span></div><div className="chart-wrap tall"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyData}><CartesianGrid stroke="#ffffff0c" vertical={false}/><XAxis dataKey="month" tick={{fill:'#7c847b',fontSize:11}} axisLine={false} tickLine={false}/><YAxis tickFormatter={shortMoney} tick={{fill:'#7c847b',fontSize:10}} axisLine={false} tickLine={false} width={55}/><Tooltip content={<ChartTip/>}/><Legend/><Bar dataKey="income" name="Income" fill="#34d399" radius={[4,4,0,0]}/><Bar dataKey="expenses" name="Expenses" fill="#d6a45a" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div></section>
-      <section className="panel analytics-donut page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("CURRENT MONTH")}</span><h2>{tr("Expense breakdown")}</h2></div></div>{categoryData.length?<><div className="donut-wrap large-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" innerRadius="65%" outerRadius="90%" paddingAngle={3} stroke="none">{categoryData.map((c:any)=><Cell key={c.name} fill={c.color}/>)}</Pie><Tooltip formatter={(v:any)=>money(v)}/></PieChart></ResponsiveContainer><div className="donut-center"><strong>{shortMoney(total)}</strong><span>{tr("Total expense")}</span></div></div><div className="analytics-category-list">{categoryData.map((c:any)=><div key={c.name}><span><i style={{background:c.color}}/>{catLabel(c.name)}</span><strong>{money(c.value)}</strong><em>{total?`${(c.value/total*100).toFixed(1)}%`:''}</em></div>)}</div></>:<EmptyChart text="No expense records for this month."/>}</section>
+      <section className="panel analytics-donut page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("CURRENT MONTH")}</span><h2>{tr("Expense breakdown")}</h2></div></div>{categoryData.length?<PieWithPopup large full data={categoryData} total={total} txs={transactions.filter((x:Transaction)=>monthKey(x.date)===month)} centerLabel={tr("Total expense")}/>:<EmptyChart text="No expense records for this month."/>}</section>
       <section className="panel analytics-wide page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("SPENDING TREND")}</span><h2>{tr("How expenses move over time")}</h2></div></div>{trend.length?<div className="chart-wrap tall"><ResponsiveContainer width="100%" height="100%"><AreaChart data={monthlyData}><defs><linearGradient id="expenseFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" stopOpacity={.28}/><stop offset="100%" stopColor="#34d399" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="#ffffff0c" vertical={false}/><XAxis dataKey="month" tick={{fill:'#7c847b',fontSize:11}} axisLine={false} tickLine={false}/><YAxis tickFormatter={shortMoney} tick={{fill:'#7c847b',fontSize:10}} axisLine={false} tickLine={false} width={55}/><Tooltip content={<ChartTip/>}/><Area type="monotone" dataKey="expenses" name="Expenses" stroke="#34d399" strokeWidth={2.5} fill="url(#expenseFill)" activeDot={{r:5}}/></AreaChart></ResponsiveContainer></div>:<EmptyChart text="Record expenses across months to reveal a spending trend."/>}</section>
       <section className="panel analytics-ranking page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("CATEGORY COMPARISON")}</span><h2>{tr("Highest spending")}</h2></div></div>{categoryData.length?categoryData.map((c:any,i:number)=><div className="rank-row" key={c.name}><span className="rank-number">{String(i+1).padStart(2,'0')}</span><div className="rank-info"><div><strong>{catLabel(c.name)}</strong><span>{money(c.value)}</span></div><div className="progress-track"><span style={{width:`${c.value/categoryData[0].value*100}%`,background:c.color}}/></div></div></div>):<EmptyChart text="Your category ranking will appear when you add expenses."/>}</section>
       <section className="panel analytics-wide page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("SAVINGS PROGRESS")}</span><h2>{tr("Monthly net cash flow")}</h2></div></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={monthlyData}><CartesianGrid stroke="#ffffff0c" vertical={false}/><XAxis dataKey="month" tick={{fill:'#7c847b',fontSize:11}} axisLine={false} tickLine={false}/><YAxis tickFormatter={shortMoney} tick={{fill:'#7c847b',fontSize:10}} axisLine={false} tickLine={false} width={55}/><Tooltip content={<ChartTip/>}/><Area type="monotone" dataKey="savings" name="Net cash flow" stroke="#d6a45a" fill="#d6a45a22" strokeWidth={2}/></AreaChart></ResponsiveContainer></div><p className="chart-footnote">{tr("Net cash flow is calculated as recorded income minus recorded expenses. It is not a separate savings-account balance.")}</p></section>
