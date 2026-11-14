@@ -19,7 +19,7 @@ import {
   ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2,
   X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal,
   Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, RefreshCw, Users, Languages, PawPrint,
-  UtensilsCrossed, Car, ShoppingBag, Clapperboard, GraduationCap, Zap, HeartPulse, Home, Repeat, Shapes, Eye, EyeOff
+  UtensilsCrossed, Car, ShoppingBag, Clapperboard, GraduationCap, Zap, HeartPulse, Home, Repeat, Shapes, Eye, EyeOff, Sun, Moon, SunMoon
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -54,6 +54,8 @@ const NAV_GROUPS: { key: string; items: Page[] }[] = [
   { key:'grp.account', items:['Profile','Settings'] }
 ]
 const PRIMARY_MOBILE: Page[] = ['Dashboard','Transactions','Monthly Budget','Savings Goals']
+type ThemeMode = 'light' | 'dark' | 'auto'
+const resolveTheme = (m: ThemeMode): 'light' | 'dark' => m === 'auto' ? ((h => h >= 6 && h < 18)(new Date().getHours()) ? 'light' : 'dark') : m
 const COLORS = ['#34d399','#2dd4bf','#10b981','#d6a45a','#6ee7b7','#38bdf8','#a3e635','#94a3b8','#f0abfc','#fb923c']
 const KEY = 'monetra-v1'
 // Teks bahasa & label kategori hanya untuk tampilan; nilai kategori yang tersimpan tidak berubah.
@@ -143,6 +145,17 @@ export default function App() {
   const [hideNums,setHideNums] = useState(()=>{ try{ return localStorage.getItem('monetra-privacy')==='1' }catch{ return false } })
   HIDE = hideNums
   const togglePrivacy = ()=>setHideNums(v=>{ const n=!v; try{ localStorage.setItem('monetra-privacy',n?'1':'0') }catch{ /* ignore */ } return n })
+  // Mode siang/malam: 'light' | 'dark' | 'auto' (auto = siang 06.00-18.00). Disimpan di Local Storage, diterapkan lewat <html data-theme>.
+  const [themeMode,setThemeMode] = useState<ThemeMode>(()=>{ try{ const v=localStorage.getItem('monetra-theme'); return v==='light'||v==='auto'?v:'dark' }catch{ return 'dark' } })
+  const [,setClockTick] = useState(0)
+  const theme = resolveTheme(themeMode)
+  useEffect(()=>{
+    document.documentElement.setAttribute('data-theme',theme)
+    document.querySelector('meta[name=theme-color]')?.setAttribute('content',theme==='light'?'#f2f6f3':'#060a08')
+  },[theme])
+  useEffect(()=>{ if(themeMode!=='auto') return; const id=window.setInterval(()=>setClockTick(n=>n+1),60000); return ()=>window.clearInterval(id) },[themeMode])
+  const changeTheme = (m:ThemeMode)=>{ setThemeMode(m); try{ localStorage.setItem('monetra-theme',m) }catch{ /* ignore */ } }
+  const toggleTheme = ()=>changeTheme(theme==='light'?'dark':'light')
   const [reminder,setReminder] = useState(false)
   const [quote,setQuote] = useState<string|null>(null)
   const guardRef = useRef({chat:false,budget:false})
@@ -305,17 +318,21 @@ export default function App() {
     const rows=[['MONETRA MONTHLY REPORT',monthLabel(month)],['Income',String(income)],['Expenses',String(expenses)],['Net cash flow',String(balance)],['Savings rate',`${savingsRate.toFixed(1)}%`],['Category','Amount'],...categoryData.map(c=>[c.name,String(c.value)])]
     download(`monetra-report-${month}.csv`,rows.map(r=>r.join(',')).join('\n'),'text/csv;charset=utf-8')
   }
-  const exportPDF = async () => {
-    const { jsPDF } = await import('jspdf')
-    const doc = new jsPDF()
-    doc.setFillColor(16,18,16); doc.rect(0,0,210,297,'F')
-    doc.setTextColor(235,239,231); doc.setFontSize(24); doc.text('MONETRA',18,24)
-    doc.setFontSize(11); doc.setTextColor(155,214,165); doc.text(monthLabel(month),18,34)
-    doc.setTextColor(235,239,231); doc.setFontSize(12)
-    ;[['Total income',fmtMoney(income)],['Total expenses',fmtMoney(expenses)],['Net cash flow',fmtMoney(balance)],['Savings rate',`${savingsRate.toFixed(1)}%`]].forEach((r,i)=>{doc.text(r[0],18,56+i*13);doc.text(r[1],190,56+i*13,{align:'right'})})
-    doc.setFontSize(14); doc.text('Expense breakdown',18,125)
-    doc.setFontSize(10); categoryData.forEach((c,i)=>doc.text(`${c.name} — ${fmtMoney(c.value)}`,18,138+i*9))
-    doc.save(`monetra-report-${month}.pdf`)
+  const exportPDF = async (variant?: 'light' | 'dark') => {
+    const { buildReportPdf } = await import('./reportPdf')
+    const pdfTheme = variant || theme
+    const spentBy = (cat: string) => monthTx.filter(t=>t.type==='expense'&&t.category===cat).reduce((a,t)=>a+t.amount,0)
+    await buildReportPdf({
+      theme: pdfTheme, lang: getLang() === 'id' ? 'id' : 'en', monthLabel: monthLabel(month),
+      income, expenses, balance, savingsRate, prevIncome: sum(previousTx,'income'), prevExpenses: previousExpense,
+      categories: categoryData.map(c=>({name:catLabel(c.name),value:c.value,color:c.color})),
+      months: monthlyData.map(m=>({month:m.month,income:m.income,expenses:m.expenses})),
+      budgets: budgets.filter(b=>b.limit>0).map(b=>({category:catLabel(b.category),limit:b.limit,spent:spentBy(b.category)})),
+      topExpenses: monthTx.filter(t=>t.type==='expense').sort((a,b)=>b.amount-a.amount).slice(0,8).map(t=>({date:t.date,name:t.name,category:catLabel(t.category),amount:t.amount})),
+      goals: goals.filter((g:Goal)=>!g.paused).slice(0,5).map((g:Goal)=>({name:g.name,saved:g.saved,target:g.target})),
+      txCount: monthTx.length, fmt: fmtMoney,
+      fileName: `monetra-report-${month}-${pdfTheme==='light'?'siang':'malam'}.pdf`
+    })
   }
   const loadDemo = () => {
     if (transactions.length && !window.confirm(tr("Demo data will be added alongside your existing records. Continue?"))) return
@@ -340,9 +357,9 @@ export default function App() {
       case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
       case 'Challenges': return <ChallengesPage challenges={challenges} transactions={transactions} today={dateISO()} money={money} onSave={saveChallenge} onDelete={deleteChallenge} />
       case 'Debts': return <DebtsPage debts={debts} onSave={saveDebt} onDelete={deleteDebt} />
-      case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} transactions={monthTx} />
+      case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} theme={theme} transactions={monthTx} />
       case 'Profile': return <ProfilePage analysis={analysis} prefs={profilePrefs} onChange={saveProfile} txCount={transactions.length} />
-      case 'Settings': return <SettingsPage cloud={cloud} lang={lang} setLang={changeLang} store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
+      case 'Settings': return <SettingsPage themeMode={themeMode} setThemeMode={changeTheme} cloud={cloud} lang={lang} setLang={changeLang} store={store} onDemo={loadDemo} onClear={()=>setConfirmClear(true)} onImport={(data:any)=>setStore(data)} />
     }
   }
 
@@ -359,7 +376,7 @@ export default function App() {
       <header className="topbar">
         <button className="mobile-menu icon-button" onClick={()=>setMobileNav(!mobileNav)} aria-label={tr("Toggle navigation")}><Menu size={19}/></button>
         <div className="breadcrumb"><span>{t('crumb')}</span><span className="crumb-slash">/</span><strong>{t('nav.'+page)}</strong></div>
-        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button privacy-toggle" aria-pressed={hideNums} aria-label={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} title={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} onClick={togglePrivacy}>{hideNums?<EyeOff size={17}/>:<Eye size={17}/>}</button><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Profile')} aria-label="Profile"><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={26}/><ChevronDown size={14}/></button></div>
+        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button theme-toggle" aria-label={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} title={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} onClick={toggleTheme}>{theme==='light'?<Moon size={17}/>:<Sun size={17}/>}</button><button className="icon-button privacy-toggle" aria-pressed={hideNums} aria-label={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} title={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} onClick={togglePrivacy}>{hideNums?<EyeOff size={17}/>:<Eye size={17}/>}</button><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Profile')} aria-label="Profile"><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={26}/><ChevronDown size={14}/></button></div>
       </header>
       <div className="page-content">{booting?<PageSkeleton/>:renderPage()}</div>
       <footer className="app-footer"><span>MONETRA <i>·</i> {tr("Know your money. Control your future.")}</span><span>{tr("Private on this browser")} <b>●</b> {tr("Saved on this device")}</span></footer>
@@ -602,21 +619,21 @@ function GoalsPage({goals,onSave,onDelete}:{goals:Goal[];onSave:(g:Goal)=>void;o
   </div>
 }
 function ReportsPage(p:any) {
-  const {month,setMonth,income,expenses,balance,savingsRate,categoryData,monthlyData,onCSV,onPDF,transactions}=p
+  const {month,setMonth,income,expenses,balance,savingsRate,categoryData,monthlyData,onCSV,onPDF,transactions,theme}=p
   const prev=monthlyData.length>1?monthlyData[monthlyData.length-2]:null
   return <div className="page-stack"><PageHeading eyebrow={tr("A CLEARER MONTH-END")} title={tr("Monthly report")} description={tr("A concise record of your financial activity, built from the transactions you've entered.")} action={<MonthControl month={month} setMonth={setMonth}/>}/>
     <section className="report-cover page-enter"><div className="report-cover-top"><div className="brand compact"><div className="brand-mark"><span/></div><span>monetra</span></div><span>{tr("MONTHLY FINANCIAL STATEMENT")}</span></div><h2>{monthLabel(month)}</h2><p>{tr("Your money, accounted for.")}</p><div className="report-cover-bottom"><span>{transactions.length} recorded transactions</span><span>Generated {new Date().toLocaleDateString('en-US')}</span></div></section>
     <div className="report-metrics"><Metric label={t('m.income')} value={money(income)} sub="Recorded inflows" icon={ArrowDownRight} tone="green"/><Metric label={t('m.expense')} value={money(expenses)} sub="Recorded outflows" icon={ArrowUpRight} tone="amber"/><Metric label={tr("Net cash flow")} value={money(balance)} sub="Income − expenses" icon={Wallet} tone="mint"/><Metric label={t('m.rate')} value={`${savingsRate.toFixed(1)}%`} sub="Net cash flow / income" icon={PiggyBank} tone="blue"/></div>
     <div className="report-grid"><section className="panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("SPENDING DISTRIBUTION")}</span><h2>{tr("Expense by category")}</h2></div></div>{categoryData.length?categoryData.map((c:any)=><div className="report-category" key={c.name}><div><span>{catLabel(c.name)}</span><strong>{money(c.value)}</strong></div><div className="progress-track"><span style={{width:`${c.value/expenses*100}%`,background:c.color}}/></div></div>):<EmptyChart text="No expense distribution available yet."/>}</section><section className="panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("MONTH-OVER-MONTH")}</span><h2>{tr("Comparison")}</h2></div></div>{prev&&prev.expenses>0?<><div className="comparison-line"><span>{tr("Expense change vs previous month")}</span><strong className={expenses<=prev.expenses?'positive':'negative'}>{((expenses-prev.expenses)/prev.expenses*100)>=0?'+':''}{((expenses-prev.expenses)/prev.expenses*100).toFixed(1)}%</strong></div><div className="comparison-line"><span>{tr("Previous month expenses")}</span><strong>{money(prev.expenses)}</strong></div><div className="comparison-line"><span>{tr("Current month expenses")}</span><strong>{money(expenses)}</strong></div></>:<div className="empty-chart"><p>{tr("Previous-month expense comparison needs recorded transactions in both periods.")}</p></div>}</section></div>
-    <div className="report-export page-enter"><div><span className="panel-kicker">{tr("TAKE YOUR DATA WITH YOU")}</span><h2>{tr("Export your monthly report")}</h2><p>{tr("Download a copy for your own records. Your data stays on this device.")}</p></div><div className="export-actions"><button className="secondary-button" onClick={onCSV}><Download size={15}/> {tr("Export CSV")}</button><button className="primary-button" onClick={onPDF}><FileText size={15}/> {tr("Download PDF")} <span className="button-arrow"><ArrowUpRight size={14}/></span></button></div></div>
+    <div className="report-export page-enter"><div><span className="panel-kicker">{tr("TAKE YOUR DATA WITH YOU")}</span><h2>{tr("Export your monthly report")}</h2><p>{tr("Download a copy for your own records. Your data stays on this device.")}</p></div><div className="export-actions"><button className="secondary-button" onClick={onCSV}><Download size={15}/> {tr("Export CSV")}</button>{(['light','dark'] as const).map(v=><button key={v} className={theme===v?'primary-button':'secondary-button'} onClick={()=>onPDF(v)}><FileText size={15}/> {v==='light'?Lx('PDF Siang','Day PDF'):Lx('PDF Malam','Night PDF')}{theme===v&&<span className="button-arrow"><ArrowUpRight size={14}/></span>}</button>)}</div></div>
   </div>
 }
-function SettingsPage({cloud,lang,setLang,store,onDemo,onClear,onImport}:any) {
+function SettingsPage({themeMode,setThemeMode,cloud,lang,setLang,store,onDemo,onClear,onImport}:any) {
   const fileRef=useRef<HTMLInputElement>(null)
   const handleFile=(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const parsed=JSON.parse(String(reader.result));if(!parsed||!Array.isArray(parsed.transactions)||!Array.isArray(parsed.budgets)||!Array.isArray(parsed.goals))throw new Error(tr("Invalid format"));if(window.confirm(tr("Importing this backup will replace the data currently stored in MONETRA. Continue?")))onImport(parsed)}catch{window.alert(tr("This file is not a valid MONETRA backup."))} };reader.readAsText(file);e.target.value=''}
   const backup=()=>download('monetra-backup.json',JSON.stringify(store,null,2),'application/json')
   return <div className="page-stack"><PageHeading eyebrow={t('s.eyebrow')} title={t('s.title')} description={t('s.desc')}/>
-    <section className="panel settings-panel page-enter"><div className="settings-section"><div className="settings-icon"><Languages size={18}/></div><div className="settings-copy"><h2>{t('s.lang')}</h2><p>{t('s.lang.desc')}</p><div className="lang-switch"><button className={`secondary-button ${lang==='id'?'selected':''}`} aria-pressed={lang==='id'} onClick={()=>setLang('id')}>Bahasa Indonesia</button><button className={`secondary-button ${lang==='en'?'selected':''}`} aria-pressed={lang==='en'} onClick={()=>setLang('en')}>English</button></div></div></div><div className="settings-section"><div className="settings-icon"><CircleDollarSign size={18}/></div><div className="settings-copy"><h2>{t('s.cur')}</h2><p>{t('s.cur.desc')}</p><span className="settings-value">IDR <i>·</i> {tr("Indonesian Rupiah")} <i>·</i> Indonesia</span></div></div><div className="settings-section"><div className="settings-icon"><Download size={18}/></div><div className="settings-copy"><h2>{t('s.bak')}</h2><p>{t('s.bak.desc')}</p><button className="secondary-button" onClick={backup}><Download size={15}/> {t('s.bak.btn')}</button></div></div><div className="settings-section"><div className="settings-icon"><Upload size={18}/></div><div className="settings-copy"><h2>{t('s.res')}</h2><p>{t('s.res.desc')}</p><input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleFile}/><button className="secondary-button" onClick={()=>fileRef.current?.click()}><Upload size={15}/> {tr("Import backup")}</button></div></div><div className="settings-section"><div className="settings-icon"><Sparkles size={18}/></div><div className="settings-copy"><h2>{t('s.demo')}</h2><p>{t('s.demo.desc')}</p><button className="secondary-button" onClick={onDemo}><Plus size={15}/> {tr("Add demo transactions")}</button></div></div><div className="settings-section destructive"><div className="settings-icon"><Trash2 size={18}/></div><div className="settings-copy"><h2>{t('s.clear')}</h2><p>{t('s.clear.desc')}</p><button className="danger-button" onClick={onClear}><Trash2 size={15}/> {tr("Clear all data")}</button></div></div></section>
+    <section className="panel settings-panel page-enter"><div className="settings-section"><div className="settings-icon"><SunMoon size={18}/></div><div className="settings-copy"><h2>{Lx('Tampilan siang & malam','Day & night appearance')}</h2><p>{Lx('Mode siang terang untuk dipakai di tempat terang, mode malam gelap yang nyaman di mata. Pilih Otomatis agar berganti sesuai jam (siang 06.00–18.00).','Day mode is bright for well-lit places, night mode is easy on the eyes in the dark. Choose Auto to switch by the clock (day 06:00–18:00).')}</p><div className="theme-seg">{([['light',Sun,Lx('Siang','Day')],['dark',Moon,Lx('Malam','Night')],['auto',SunMoon,Lx('Otomatis','Auto')]] as const).map(([k,I,label])=><button key={k} className={`secondary-button ${themeMode===k?'selected':''}`} aria-pressed={themeMode===k} onClick={()=>setThemeMode(k)}><I size={15}/>{label}</button>)}</div></div></div><div className="settings-section"><div className="settings-icon"><Languages size={18}/></div><div className="settings-copy"><h2>{t('s.lang')}</h2><p>{t('s.lang.desc')}</p><div className="lang-switch"><button className={`secondary-button ${lang==='id'?'selected':''}`} aria-pressed={lang==='id'} onClick={()=>setLang('id')}>Bahasa Indonesia</button><button className={`secondary-button ${lang==='en'?'selected':''}`} aria-pressed={lang==='en'} onClick={()=>setLang('en')}>English</button></div></div></div><div className="settings-section"><div className="settings-icon"><CircleDollarSign size={18}/></div><div className="settings-copy"><h2>{t('s.cur')}</h2><p>{t('s.cur.desc')}</p><span className="settings-value">IDR <i>·</i> {tr("Indonesian Rupiah")} <i>·</i> Indonesia</span></div></div><div className="settings-section"><div className="settings-icon"><Download size={18}/></div><div className="settings-copy"><h2>{t('s.bak')}</h2><p>{t('s.bak.desc')}</p><button className="secondary-button" onClick={backup}><Download size={15}/> {t('s.bak.btn')}</button></div></div><div className="settings-section"><div className="settings-icon"><Upload size={18}/></div><div className="settings-copy"><h2>{t('s.res')}</h2><p>{t('s.res.desc')}</p><input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={handleFile}/><button className="secondary-button" onClick={()=>fileRef.current?.click()}><Upload size={15}/> {tr("Import backup")}</button></div></div><div className="settings-section"><div className="settings-icon"><Sparkles size={18}/></div><div className="settings-copy"><h2>{t('s.demo')}</h2><p>{t('s.demo.desc')}</p><button className="secondary-button" onClick={onDemo}><Plus size={15}/> {tr("Add demo transactions")}</button></div></div><div className="settings-section destructive"><div className="settings-icon"><Trash2 size={18}/></div><div className="settings-copy"><h2>{t('s.clear')}</h2><p>{t('s.clear.desc')}</p><button className="danger-button" onClick={onClear}><Trash2 size={15}/> {tr("Clear all data")}</button></div></div></section>
     <CloudPanel cloud={cloud}/>
     {cloud?.user?<div className="privacy-note page-enter"><div><Check size={17}/></div><p><strong>{tr("Your finances stay yours.")}</strong> {getLang()==='id'?'Selama kamu masuk, datamu disimpan di database Supabase milikmu dan hanya bisa dibaca akunmu sendiri. Tetap ekspor cadangan JSON secara berkala.':'While signed in, your data is stored in your own Supabase database and readable only by your account. Still export a JSON backup regularly.'}</p></div>:<div className="privacy-note page-enter"><div><Check size={17}/></div><p><strong>{tr("Your finances stay yours.")}</strong> {tr("MONETRA stores records in this browser only. Data is not sent to a cloud database. Export a JSON backup regularly, especially before clearing browser data or changing devices.")}</p></div>}
   </div>
