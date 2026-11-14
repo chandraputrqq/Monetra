@@ -1,0 +1,57 @@
+/* Pie/donut berwarna + popup detail kategori. Memakai variabel tema, jadi otomatis ikut siang/malam. */
+.donut-wrap .recharts-sector{transition:opacity .2s,filter .2s}
+.donut-wrap:hover .recharts-pie-sector:not(:hover) .recharts-sector{opacity:.8}
+.donut-wrap .recharts-pie-sector:hover .recharts-sector{filter:drop-shadow(0 4px 10px #0005)}
+.donut-center strong{transition:color .2s}
+.pie-tip{display:flex;gap:10px;align-items:center;padding:9px 13px;border-radius:12px;background:var(--panel);
+  border:1px solid color-mix(in srgb,var(--c) 55%,var(--line));
+  box-shadow:0 10px 30px #0005,0 0 0 3px color-mix(in srgb,var(--c) 16%,transparent)}
+.pie-tip i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 12px var(--c);flex:none}
+.pie-tip strong{display:block;font-size:12.5px;color:var(--text);font-weight:600}
+.pie-tip span{font-size:11.5px;color:var(--soft)}
+.pie-row{cursor:pointer;border-radius:8px;transition:background .15s,transform .15s}
+.pie-row:hover,.pie-row:focus-visible{background:color-mix(in srgb,var(--text) 7%,transparent);transform:translateX(3px)}
+.pie-hint{font-size:11px;color:var(--muted);text-align:center;margin:12px 0 0}
+
+.pie-backdrop{animation:pie-fade .2s ease both}
+.modal.pie-pop{--ring-track:color-mix(in srgb,var(--text) 11%,transparent);position:relative;width:min(100%,440px);padding:0;gap:0;overflow:hidden;
+  border-color:color-mix(in srgb,var(--c) 45%,var(--line));
+  box-shadow:0 30px 90px #0008,0 0 70px color-mix(in srgb,var(--c) 22%,transparent);
+  animation:pie-pop-in .34s cubic-bezier(.22,1.25,.36,1) both}
+.pie-pop-close{position:absolute;top:12px;right:12px;z-index:2}
+.pie-pop-hero{display:flex;gap:18px;align-items:center;padding:28px 26px 22px;
+  background:radial-gradient(circle at 12% 0%,color-mix(in srgb,var(--c) 40%,transparent),transparent 62%),
+  linear-gradient(180deg,color-mix(in srgb,var(--c) 14%,transparent),transparent)}
+.pie-ring{width:98px;height:98px;border-radius:50%;display:grid;place-items:center;flex:none;
+  box-shadow:0 0 30px color-mix(in srgb,var(--c) 50%,transparent);animation:pie-spin .7s cubic-bezier(.22,.8,.3,1) both}
+.pie-ring>div{width:76px;height:76px;border-radius:50%;background:var(--panel);display:grid;place-content:center;text-align:center}
+.pie-ring strong{font-size:21px;line-height:1;color:var(--c);font-weight:700}
+.pie-ring span{font-size:9.5px;color:var(--muted);margin-top:3px}
+.pie-pop-hero h2{margin:4px 0 6px;font-size:21px;font-weight:600;color:var(--text)}
+.pie-amount{font-size:25px;font-weight:700;letter-spacing:-.8px;color:var(--text);font-variant-numeric:tabular-nums}
+.pie-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 20px}
+.pie-stats>div{padding:11px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--c) 28%,var(--line));
+  background:color-mix(in srgb,var(--c) 9%,transparent);display:grid;gap:4px}
+.pie-stats span{font-size:10.5px;color:var(--muted)}
+.pie-stats strong{font-size:14px;color:var(--text);font-variant-numeric:tabular-nums}
+.pie-list-title{padding:18px 26px 8px;font-size:11px;letter-spacing:1.1px;color:var(--muted);font-weight:600;text-transform:uppercase}
+.pie-list{display:grid;gap:2px;padding:0 20px}
+.pie-list>div{display:flex;align-items:center;gap:12px;padding:9px 6px;border-radius:10px;animation:pie-rise .4s cubic-bezier(.22,.8,.3,1) both}
+.pie-list>div:hover{background:color-mix(in srgb,var(--c) 10%,transparent)}
+.pie-list i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.pie-list>div>div{flex:1;min-width:0;display:grid}
+.pie-list strong{font-size:13px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pie-list span{font-size:11px;color:var(--muted)}
+.pie-list b{font-size:13px;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.pie-others{display:flex;gap:7px;flex-wrap:wrap;padding:16px 20px 22px}
+.pie-others button{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;font-size:11.5px;cursor:pointer;
+  color:var(--soft);background:color-mix(in srgb,var(--c) 10%,transparent);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);
+  transition:transform .15s,background .15s}
+.pie-others button:hover{transform:translateY(-2px);background:color-mix(in srgb,var(--c) 22%,transparent);color:var(--text)}
+.pie-others i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+@media(max-width:480px){.pie-pop-hero{flex-direction:column;align-items:flex-start}.pie-stats{grid-template-columns:1fr 1fr 1fr;padding:0 14px}}
+@keyframes pie-fade{from{opacity:0}to{opacity:1}}
+@keyframes pie-pop-in{from{opacity:0;transform:translateY(14px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes pie-spin{from{opacity:0;transform:rotate(-90deg) scale(.7)}to{opacity:1;transform:none}}
+@keyframes pie-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.pie-backdrop,.modal.pie-pop,.pie-ring,.pie-list>div{animation:none}.pie-row,.pie-others button{transition:none}}
