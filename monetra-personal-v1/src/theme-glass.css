@@ -1,0 +1,93 @@
+/* =====================================================================
+   MONETRA — Glass layer (dimuat PALING AKHIR, setelah theme-light.css)
+   Hanya tampilan. Untuk menghapus: hapus import './theme-glass.css' di main.tsx.
+   ===================================================================== */
+:root{
+  --radius:20px;--radius-sm:12px;
+  --g-bg:rgba(255,255,255,.055);--g-bg-hi:rgba(255,255,255,.095);--g-strong:rgba(14,22,18,.78);
+  --g-edge:rgba(255,255,255,.12);--g-shine:rgba(255,255,255,.2);
+  --g-shadow:0 18px 40px -22px rgba(0,0,0,.75);--g-blur:blur(22px) saturate(160%);
+  --g-orb1:rgba(16,185,129,.34);--g-orb2:rgba(20,130,120,.28);--g-orb3:rgba(132,204,22,.12);
+}
+html[data-theme="light"]{
+  --g-bg:rgba(255,255,255,.52);--g-bg-hi:rgba(255,255,255,.75);--g-strong:rgba(250,254,252,.86);
+  --g-edge:rgba(255,255,255,.85);--g-shine:rgba(255,255,255,1);
+  --g-shadow:0 18px 36px -22px rgba(11,70,45,.38);
+  --g-orb1:rgba(52,229,160,.45);--g-orb2:rgba(56,189,248,.28);--g-orb3:rgba(190,242,100,.4);
+}
+
+/* ---------- Latar: cahaya lembut di belakang kaca ---------- */
+.app-shell,html[data-theme="light"] .app-shell{
+  background:
+    radial-gradient(640px 520px at 6% -4%,var(--g-orb1),transparent 70%),
+    radial-gradient(560px 480px at 98% 34%,var(--g-orb2),transparent 70%),
+    radial-gradient(520px 420px at 40% 108%,var(--g-orb3),transparent 70%),
+    var(--bg);
+  background-attachment:fixed
+}
+html[data-theme="light"]{--bg:#e8f3ed}
+
+/* ---------- Permukaan kaca ---------- */
+.panel,.metric-card,.goal-overview-card,.budget-overview,.report-export,.enhanced-goal-card,.help-card,
+html[data-theme="light"] .panel,html[data-theme="light"] .metric-card,html[data-theme="light"] .help-card{
+  background:var(--g-bg);border:1px solid var(--g-edge);border-radius:var(--radius);
+  box-shadow:inset 0 1px 0 var(--g-shine),var(--g-shadow);
+  -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)
+}
+.metric-card.tone-green,.metric-card.tone-amber,.metric-card.tone-mint,.metric-card.tone-blue,.metric-card-button.tone-blue{background:var(--g-bg);border-color:var(--g-edge)}
+.metric-card-button:hover,.metric-card-button.tone-blue:hover{background:var(--g-bg-hi);border-color:#34d39966}
+.table-panel{overflow:hidden}
+th,thead th{background:transparent}
+tbody tr:hover{background:var(--g-bg-hi)}
+
+/* ---------- Sidebar, topbar, navigasi bawah ---------- */
+.sidebar,html[data-theme="light"] .sidebar{
+  background:var(--g-bg);border-right:1px solid var(--g-edge);
+  box-shadow:inset -1px 0 0 var(--g-shine);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)
+}
+.topbar{background:transparent;border-bottom:0}
+.nav-item.active{background:var(--g-bg-hi);box-shadow:inset 0 1px 0 var(--g-shine)}
+.bottom-nav,.more-sheet{
+  background:var(--g-strong);border:1px solid var(--g-edge);box-shadow:inset 0 1px 0 var(--g-shine),var(--g-shadow);
+  -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)
+}
+
+/* ---------- Modal, laci Natasya, toast: kaca lebih pekat agar terbaca ---------- */
+.modal,.natasya-drawer,.toast,.chart-tooltip,.reminder-notice{
+  background:var(--g-strong);border:1px solid var(--g-edge);border-radius:var(--radius);
+  box-shadow:inset 0 1px 0 var(--g-shine),0 30px 70px -28px rgba(0,0,0,.8);
+  -webkit-backdrop-filter:blur(30px) saturate(170%);backdrop-filter:blur(30px) saturate(170%)
+}
+.modal-backdrop,.natasya-backdrop,.more-scrim{-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.nat-msg.bot{background:var(--g-bg-hi);border:1px solid var(--g-edge)}
+.nat-chips button{background:var(--g-bg);border:1px solid var(--g-edge);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.nat-chips button:hover{background:var(--g-bg-hi)}
+
+/* ---------- Input & kontrol ---------- */
+.search-field,.filter-bar select,.filter-bar input,.goals-filters select,.nat-form input,
+.modal input,.modal select,.modal textarea,.review-fields input,.review-fields select,.review-fields textarea,
+html[data-theme="light"] .search-field,html[data-theme="light"] .modal input,html[data-theme="light"] .modal select{
+  background:var(--g-bg);border:1px solid var(--g-edge);border-radius:var(--radius-sm);
+  box-shadow:inset 0 1px 0 var(--g-shine)
+}
+.search-field:focus-within,.nat-form input:focus,.modal input:focus,.modal select:focus,.modal textarea:focus{
+  border-color:#34d399aa;box-shadow:0 0 0 3px #34d39922,inset 0 1px 0 var(--g-shine)
+}
+.type-switch{background:var(--g-bg);border:1px solid var(--g-edge);border-radius:var(--radius-sm)}
+.icon-button{background:var(--g-bg);border:1px solid var(--g-edge);border-radius:var(--radius-sm);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.icon-button:hover{background:var(--g-bg-hi)}
+.secondary-button{background:var(--g-bg);border:1px solid var(--g-edge);box-shadow:inset 0 1px 0 var(--g-shine)}
+.secondary-button:hover{background:var(--g-bg-hi)}
+.primary-button{background:linear-gradient(180deg,#4ee3aa,#22b97f);border-color:#ffffff33;box-shadow:inset 0 1px 0 #ffffff55,0 8px 22px -10px #10b981}
+.progress-track{background:rgba(127,140,133,.22)}
+
+/* ---------- Cadangan jika browser tidak mendukung blur ---------- */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .panel,.metric-card,.goal-overview-card,.budget-overview,.report-export,.enhanced-goal-card,.sidebar{background:var(--g-strong)}
+}
+@media (max-width:900px){
+  .panel,.metric-card,.sidebar{-webkit-backdrop-filter:blur(14px) saturate(150%);backdrop-filter:blur(14px) saturate(150%)}
+}
+@media (prefers-reduced-transparency:reduce){
+  .panel,.metric-card,.sidebar,.bottom-nav{background:var(--g-strong);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
