@@ -9,6 +9,9 @@ import { ProfilePage, AnimalAvatar, analyze, resolveAnimal, DEFAULT_PROFILE, ANI
 import type { ProfilePrefs } from './Profile'
 import { t, tr, getLang, setLang } from './i18n'
 import type { Lang } from './i18n'
+import { buildCsv, csvDelimiter } from './csv'
+import { WrappedPage, SmartPage, VoiceButton } from './Extras'
+import { Gift, Lightbulb } from 'lucide-react'
 import type { ReactNode, FormEvent, ChangeEvent } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -36,7 +39,7 @@ type GoalContribution = { id:string; type:'deposit'|'withdrawal'; amount:number;
 type Goal = { id:string; name:string; target:number; saved:number; date:string; category?:string; description?:string; priority?:'Low'|'Medium'|'High'; paused?:boolean; completed?:boolean; contributions?:GoalContribution[] }
 type DebtPayment = { id: string; amount: number; date: string; notes?: string }
 type Debt = { id: string; person: string; direction: 'lent' | 'borrowed'; amount: number; date: string; due?: string; notes?: string; payments: DebtPayment[] }
-type Page = 'Dashboard' | 'Challenges' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Profile' | 'Settings'
+type Page = 'Dashboard' | 'Challenges' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Wrapped' | 'Smart Tools' | 'Profile' | 'Settings'
 
 const EXPENSE_CATEGORIES = ['Food & Beverages','Transportation','Shopping','Entertainment','Education','Bills & Utilities','Health','Housing','Subscriptions','Other']
 const INCOME_CATEGORIES = ['Salary','Business','Freelance','Investment Returns','Other Income']
@@ -44,13 +47,13 @@ const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
   { label:'Dashboard', icon:LayoutDashboard }, { label:'Transactions', icon:ArrowLeftRight },
   { label:'Monthly Budget', icon:Wallet }, { label:'Analytics', icon:ChartNoAxesCombined },
   { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target }, { label:'Challenges', icon:Trophy }, { label:'Debts', icon:Users },
-  { label:'Monthly Reports', icon:FileText }, { label:'Profile', icon:PawPrint }, { label:'Settings', icon:Settings }
+  { label:'Monthly Reports', icon:FileText }, { label:'Smart Tools', icon:Lightbulb }, { label:'Wrapped', icon:Gift }, { label:'Profile', icon:PawPrint }, { label:'Settings', icon:Settings }
 ]
 // Menu dikelompokkan; semua halaman lama tetap ada. Label grup memakai kunci i18n 'grp.*'.
 const NAV_GROUPS: { key: string; items: Page[] }[] = [
   { key:'grp.overview', items:['Dashboard'] },
   { key:'grp.finance', items:['Transactions','Monthly Budget','Savings Goals','Challenges','Debts'] },
-  { key:'grp.analysis', items:['Analytics','Financial Calendar','Monthly Reports'] },
+  { key:'grp.analysis', items:['Analytics','Financial Calendar','Monthly Reports','Smart Tools','Wrapped'] },
   { key:'grp.account', items:['Profile','Settings'] }
 ]
 const PRIMARY_MOBILE: Page[] = ['Dashboard','Transactions','Monthly Budget','Savings Goals']
@@ -276,14 +279,17 @@ export default function App() {
   }, [Math.floor(curUtil / 10), allocated])
 
   const addOrUpdate = (tx: Transaction) => {
-    setStore((s:any)=>({...s,transactions: editing ? s.transactions.map((t:Transaction)=>t.id===tx.id?tx:t) : [tx,...s.transactions]}))
-    setEditing(null); setModal(false); notify(editing?tr("Transaction updated"):tr("Transaction saved"))
+    setStore((s:any)=>({...s,transactions: (editing&&!String(editing.id).startsWith('draft-')) ? s.transactions.map((t:Transaction)=>t.id===tx.id?tx:t) : [tx,...s.transactions]}))
+    setEditing(null); setModal(false); notify(editing&&!String(editing.id).startsWith('draft-')?tr("Transaction updated"):tr("Transaction saved"))
   }
   const removeTx = (id: string) => {
     if (!window.confirm(tr("Delete this transaction? This cannot be undone."))) return
     setStore((s:any)=>({...s,transactions:s.transactions.filter((t:Transaction)=>t.id!==id)})); notify(tr("Transaction deleted"))
   }
   const openEdit = (tx: Transaction) => { setEditing(tx); setModal(true) }
+  const voiceDraft = (d:any) => { setEditing({id:'draft-voice',name:d.name,amount:d.amount,type:d.type,category:d.category,date:d.date,notes:Lx('Dicatat lewat suara','Logged by voice')}); setModal(true) }
+  const patchStore = (key:string,value:unknown) => setStore((s:any)=>({...s,[key]:value}))
+  const depositRoundUp = (goalId:string,amount:number) => setStore((s:any)=>({...s,goals:s.goals.map((g:Goal)=>g.id!==goalId?g:{...g,saved:g.saved+amount,contributions:[...(g.contributions||[]),{id:uid(),type:'deposit',amount,date:dateISO(),notes:Lx('Pembulatan tabungan','Round-up savings'),balance:g.saved+amount}]})}))
   const openAdd = () => { setEditing(null); setModal(true) }
   const filtered = useMemo(()=>transactions.filter(t=>
     (filterMonth==='all'||monthKey(t.date)===filterMonth) &&
@@ -311,12 +317,33 @@ export default function App() {
   const saveGoal = (goal:Goal) => setStore((s:any)=>({...s,goals:s.goals.some((g:Goal)=>g.id===goal.id)?s.goals.map((g:Goal)=>g.id===goal.id?goal:g):[...s.goals,goal]}))
   const deleteGoal = (id:string) => setStore((s:any)=>({...s,goals:s.goals.filter((g:Goal)=>g.id!==id)}))
   const exportCSV = () => {
-    const rows=[['Date','Name','Type','Category','Amount','Notes'],...filtered.map(t=>[t.date,t.name,t.type,t.category,String(t.amount),t.notes||''])]
-    download(`monetra-transactions-${filterMonth}.csv`,rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n'),'text/csv;charset=utf-8')
+    const sep=csvDelimiter(lang)
+    const rows=[
+      [Lx('Tanggal','Date'),Lx('Nama','Name'),Lx('Jenis','Type'),Lx('Kategori','Category'),Lx('Jumlah (Rp)','Amount'),Lx('Berulang','Recurring'),Lx('Catatan','Notes')],
+      ...filtered.map(t=>[t.date,t.name,t.type==='income'?Lx('Pemasukan','Income'):Lx('Pengeluaran','Expense'),catLabel(t.category),t.type==='income'?t.amount:-t.amount,t.recurringId?Lx('Ya','Yes'):Lx('Tidak','No'),t.notes||''])
+    ]
+    download(`monetra-${Lx('transaksi','transactions')}-${filterMonth}.csv`,buildCsv(rows,sep),'text/csv;charset=utf-8')
   }
   const exportReport = () => {
-    const rows=[['MONETRA MONTHLY REPORT',monthLabel(month)],['Income',String(income)],['Expenses',String(expenses)],['Net cash flow',String(balance)],['Savings rate',`${savingsRate.toFixed(1)}%`],['Category','Amount'],...categoryData.map(c=>[c.name,String(c.value)])]
-    download(`monetra-report-${month}.csv`,rows.map(r=>r.join(',')).join('\n'),'text/csv;charset=utf-8')
+    const sep=csvDelimiter(lang)
+    const spentBy=(cat:string)=>monthTx.filter(t=>t.type==='expense'&&t.category===cat).reduce((a,t)=>a+t.amount,0)
+    const pct=(v:number)=>expenses>0?Math.round((v/expenses)*1000)/10:0
+    const rows:(string|number)[][]=[
+      [Lx('LAPORAN BULANAN MONETRA','MONETRA MONTHLY REPORT'),monthLabel(month)],
+      [],
+      [Lx('Ringkasan','Summary'),Lx('Jumlah (Rp)','Amount')],
+      [Lx('Pemasukan','Income'),income],
+      [Lx('Pengeluaran','Expenses'),expenses],
+      [Lx('Arus kas bersih','Net cash flow'),balance],
+      [Lx('Rasio tabungan (%)','Savings rate (%)'),Math.round(savingsRate*10)/10],
+      [],
+      [Lx('Kategori pengeluaran','Expense category'),Lx('Jumlah (Rp)','Amount'),Lx('Persen (%)','Share (%)')],
+      ...categoryData.map(c=>[catLabel(c.name),c.value,pct(c.value)]),
+      [],
+      [Lx('Anggaran','Budget'),Lx('Batas (Rp)','Limit'),Lx('Terpakai (Rp)','Spent'),Lx('Sisa (Rp)','Remaining')],
+      ...budgets.filter(b=>b.limit>0).map(b=>[catLabel(b.category),b.limit,spentBy(b.category),b.limit-spentBy(b.category)])
+    ]
+    download(`monetra-${Lx('laporan','report')}-${month}.csv`,buildCsv(rows,sep),'text/csv;charset=utf-8')
   }
   const exportPDF = async (variant?: 'light' | 'dark') => {
     const { buildReportPdf } = await import('./reportPdf')
@@ -355,6 +382,8 @@ export default function App() {
       case 'Analytics': return <AnalyticsPage categoryData={categoryData} monthlyData={monthlyData} month={month} setMonth={setMonth} transactions={transactions} />
       case 'Financial Calendar': return <CalendarPage month={month} setMonth={setMonth} transactions={transactions} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
       case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
+      case 'Wrapped': return <WrappedPage transactions={transactions} goals={goals} money={money} cat={catLabel} />
+      case 'Smart Tools': return <SmartPage transactions={transactions} recurring={recurring} goals={goals} month={month} money={money} cat={catLabel} plan={store.plan} subMarks={store.subMarks} roundStep={store.roundStep} roundDone={store.roundDone} onPatch={patchStore} onDeposit={depositRoundUp} />
       case 'Challenges': return <ChallengesPage challenges={challenges} transactions={transactions} today={dateISO()} money={money} onSave={saveChallenge} onDelete={deleteChallenge} />
       case 'Debts': return <DebtsPage debts={debts} onSave={saveDebt} onDelete={deleteDebt} />
       case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} theme={theme} transactions={monthTx} />
@@ -376,7 +405,7 @@ export default function App() {
       <header className="topbar">
         <button className="mobile-menu icon-button" onClick={()=>setMobileNav(!mobileNav)} aria-label={tr("Toggle navigation")}><Menu size={19}/></button>
         <div className="breadcrumb"><span>{t('crumb')}</span><span className="crumb-slash">/</span><strong>{t('nav.'+page)}</strong></div>
-        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button theme-toggle" aria-label={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} title={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} onClick={toggleTheme}>{theme==='light'?<Moon size={17}/>:<Sun size={17}/>}</button><button className="icon-button privacy-toggle" aria-pressed={hideNums} aria-label={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} title={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} onClick={togglePrivacy}>{hideNums?<EyeOff size={17}/>:<Eye size={17}/>}</button><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Profile')} aria-label="Profile"><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={26}/><ChevronDown size={14}/></button></div>
+        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><VoiceButton onDraft={voiceDraft} onToast={notify}/><button className="icon-button theme-toggle" aria-label={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} title={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} onClick={toggleTheme}>{theme==='light'?<Moon size={17}/>:<Sun size={17}/>}</button><button className="icon-button privacy-toggle" aria-pressed={hideNums} aria-label={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} title={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} onClick={togglePrivacy}>{hideNums?<EyeOff size={17}/>:<Eye size={17}/>}</button><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Profile')} aria-label="Profile"><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={26}/><ChevronDown size={14}/></button></div>
       </header>
       <div className="page-content">{booting?<PageSkeleton/>:renderPage()}</div>
       <footer className="app-footer"><span>MONETRA <i>·</i> {tr("Know your money. Control your future.")}</span><span>{tr("Private on this browser")} <b>●</b> {tr("Saved on this device")}</span></footer>
@@ -691,9 +720,10 @@ function SettingsPage({themeMode,setThemeMode,cloud,lang,setLang,store,onDemo,on
 }
 function TransactionModal({initial,onClose,onSave}:{initial:Transaction|null,onClose:()=>void,onSave:(t:Transaction)=>void}) {
   const [name,setName]=useState(initial?.name||''),[amount,setAmount]=useState(initial?String(initial.amount):''),[type,setType]=useState<TxType>(initial?.type||'expense'),[category,setCategory]=useState(initial?.category||'Food & Beverages'),[date,setDate]=useState(initial?.date||dateISO()),[notes,setNotes]=useState(initial?.notes||''),[error,setError]=useState('')
-  useEffect(()=>{setCategory(type==='income'?'Salary':'Food & Beverages')},[type])
-  const submit=(e:FormEvent)=>{e.preventDefault();if(!name.trim()){setError(tr("Please enter a transaction name."));return}if(!Number.isFinite(Number(amount))||Number(amount)<=0){setError(tr("Amount must be greater than zero."));return}if(!date){setError(tr("Please choose a transaction date."));return}onSave({id:initial?.id||uid(),name:name.trim(),amount:Number(amount),type,category,date,notes:notes.trim()})}
-  return <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><form className="modal" onSubmit={submit}><div className="modal-head"><div><span className="panel-kicker">{initial?'UPDATE YOUR RECORD':'RECORD A MONEY MOVEMENT'}</span><h2>{initial?'Edit transaction':tr("New transaction")}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label={tr("Close")}><X size={18}/></button></div><div className="type-switch"><button type="button" className={type==='expense'?'selected expense':''} onClick={()=>setType('expense')}><ArrowUpRight size={15}/> {tr("Expense")}</button><button type="button" className={type==='income'?'selected income':''} onClick={()=>setType('income')}><ArrowDownRight size={15}/> {tr("Income")}</button></div><label>{tr("Transaction name")}<input autoFocus required value={name} onChange={e=>setName(e.target.value)} placeholder={tr("e.g. Monthly salary")}/></label><label>{tr("Amount (IDR)")}<div className="amount-input"><span>Rp</span><input required type="text" inputMode="numeric" maxLength={13} value={formatDigits(amount)} onChange={e=>setAmount(limitedDigits(e.target.value))} placeholder="1.000.000" aria-label={tr("Transaction amount in rupiah")}/></div></label><div className="form-row"><label>{tr("Category")}<select value={category} onChange={e=>setCategory(e.target.value)}>{(type==='income'?INCOME_CATEGORIES:EXPENSE_CATEGORIES).map(c=><option key={c}>{c}</option>)}</select></label><label>{tr("Date")}<input required type="date" value={date} onChange={e=>setDate(e.target.value)}/></label></div><label>{tr("Notes")} <span className="optional">{tr("(optional)")}</span><textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} placeholder={tr("Add a little context...")}/></label>{error&&<p className="form-error"><AlertTriangle size={14}/>{error}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>{tr("Cancel")}</button><button className="primary-button" type="submit">{initial?tr("Save changes"):tr("Save transaction")} <ArrowUpRight size={15}/></button></div></form></div>
+  const isDraft=!!initial&&String(initial.id).startsWith('draft-')
+  useEffect(()=>{if(initial&&type===initial.type)return;setCategory(type==='income'?'Salary':'Food & Beverages')},[type])
+  const submit=(e:FormEvent)=>{e.preventDefault();if(!name.trim()){setError(tr("Please enter a transaction name."));return}if(!Number.isFinite(Number(amount))||Number(amount)<=0){setError(tr("Amount must be greater than zero."));return}if(!date){setError(tr("Please choose a transaction date."));return}onSave({id:(initial&&!isDraft)?initial.id:uid(),name:name.trim(),amount:Number(amount),type,category,date,notes:notes.trim()})}
+  return <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><form className="modal" onSubmit={submit}><div className="modal-head"><div><span className="panel-kicker">{initial&&!isDraft?'UPDATE YOUR RECORD':'RECORD A MONEY MOVEMENT'}</span><h2>{initial&&!isDraft?'Edit transaction':tr("New transaction")}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label={tr("Close")}><X size={18}/></button></div><div className="type-switch"><button type="button" className={type==='expense'?'selected expense':''} onClick={()=>setType('expense')}><ArrowUpRight size={15}/> {tr("Expense")}</button><button type="button" className={type==='income'?'selected income':''} onClick={()=>setType('income')}><ArrowDownRight size={15}/> {tr("Income")}</button></div><label>{tr("Transaction name")}<input autoFocus required value={name} onChange={e=>setName(e.target.value)} placeholder={tr("e.g. Monthly salary")}/></label><label>{tr("Amount (IDR)")}<div className="amount-input"><span>Rp</span><input required type="text" inputMode="numeric" maxLength={13} value={formatDigits(amount)} onChange={e=>setAmount(limitedDigits(e.target.value))} placeholder="1.000.000" aria-label={tr("Transaction amount in rupiah")}/></div></label><div className="form-row"><label>{tr("Category")}<select value={category} onChange={e=>setCategory(e.target.value)}>{(type==='income'?INCOME_CATEGORIES:EXPENSE_CATEGORIES).map(c=><option key={c}>{c}</option>)}</select></label><label>{tr("Date")}<input required type="date" value={date} onChange={e=>setDate(e.target.value)}/></label></div><label>{tr("Notes")} <span className="optional">{tr("(optional)")}</span><textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} placeholder={tr("Add a little context...")}/></label>{error&&<p className="form-error"><AlertTriangle size={14}/>{error}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>{tr("Cancel")}</button><button className="primary-button" type="submit">{initial?tr("Save changes"):tr("Save transaction")} <ArrowUpRight size={15}/></button></div></form></div>
 }
 function DebtsPage({debts,onSave,onDelete}:{debts:Debt[];onSave:(d:Debt)=>void;onDelete:(id:string)=>void}) {
   const today=dateISO()
