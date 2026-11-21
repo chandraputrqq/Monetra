@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@500;700&display=swap');
+.px-wrap{display:grid;justify-items:center;gap:12px}
+.px-stage{position:relative;height:min(76vh,740px);aspect-ratio:9/16;max-width:100%;overflow:hidden;container-type:inline-size;cursor:pointer;user-select:none;-webkit-user-select:none;background:#0b0a2a;border:3px solid #cfe6ff;box-shadow:0 0 0 3px #3b3b8f,0 30px 70px -34px #000;font-family:'Pixelify Sans','Press Start 2P',monospace;color:#fff;image-rendering:pixelated}
+.px-stage:focus-visible{outline:3px solid #ffe45e;outline-offset:4px}
+.px-art{position:absolute;inset:0}.px-art svg{width:100%;height:100%;display:block;shape-rendering:crispEdges}
+.px-art svg text{shape-rendering:auto}
+.px-bars{position:absolute;z-index:6;left:4cqw;right:4cqw;top:3cqw;display:flex;gap:1cqw}
+.px-bars b{flex:1;height:1.6cqw;background:#0b0a2a;border:.4cqw solid #cfe6ff;overflow:hidden}
+.px-bars b i{display:block;height:100%;width:0;background:#5ef2ff}
+.px-bars b.done i{width:100%}.px-bars b.cur i{background:#ff5fa2;animation:px-fill 7s steps(28,end) forwards}
+.paused .px-bars b.cur i{animation-play-state:paused}
+@keyframes px-fill{to{width:100%}}
+.px-head{position:absolute;z-index:4;left:6cqw;right:6cqw;top:9cqw;display:grid;gap:2.4cqw}
+.px-stagel{font:400 3.6cqw 'Press Start 2P',monospace;color:#5ef2ff}
+.px-title{font:400 8.6cqw/1.25 'Press Start 2P',monospace;text-transform:uppercase;background:linear-gradient(#ffe45e 50%,#ff5fa2 50%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 .8cqw 0 #8b2f9c) drop-shadow(0 1.6cqw 0 #1d1250);overflow-wrap:anywhere;animation:px-in .5s steps(5,end) both}
+.px-title.m{font-size:6.6cqw}.px-title.s{font-size:6cqw}
+.px-label{font:400 3.2cqw/1.5 'Press Start 2P',monospace;color:#ffd84a;text-transform:uppercase}
+@keyframes px-in{from{transform:translateY(-4cqw);opacity:0}}
+.px-dlg{position:absolute;z-index:4;left:5cqw;right:5cqw;bottom:6cqw;min-height:31cqw;padding:5cqw 5cqw 7cqw;background:#1a1850;border:.9cqw solid #cfe6ff;box-shadow:0 0 0 .9cqw #0b0a2a,inset 0 0 0 .9cqw #2d2d86}
+.px-tag{position:absolute;left:3cqw;top:-3.6cqw;padding:1cqw 2.4cqw;background:#ff5fa2;border:.7cqw solid #fff;font:400 3cqw 'Press Start 2P',monospace;color:#fff}
+.px-sub{font:500 4.5cqw/1.45 'Pixelify Sans',monospace;color:#fff}
+.px-caret{position:absolute;right:3.4cqw;bottom:3cqw;width:0;height:0;border-left:1.8cqw solid transparent;border-right:1.8cqw solid transparent;border-top:2.4cqw solid #ffd84a;animation:px-blink 1s steps(2,start) infinite}
+@keyframes px-blink{50%{opacity:0}}
+.px-again{margin-top:2cqw;font:400 3.2cqw 'Press Start 2P',monospace;padding:2cqw 3cqw;background:#ffe45e;color:#1d1250;border:.7cqw solid #fff;box-shadow:.8cqw .8cqw 0 #8b2f9c;cursor:pointer}
+.tw0{animation:px-tw 1.6s steps(2,start) infinite}.tw1{animation:px-tw 2.3s steps(2,start) infinite .4s}.tw2{animation:px-tw 3.1s steps(2,start) infinite .9s}
+@keyframes px-tw{50%{opacity:.15}}
+.wa{animation:px-win 3.4s steps(1,end) infinite}.wb{animation:px-win 5.2s steps(1,end) infinite 1.1s}
+@keyframes px-win{50%{opacity:0}}
+.halo{opacity:.35}
+.px-cloud{position:absolute;left:0;right:0;top:0;height:200%;z-index:8;pointer-events:none;transform:translateY(50%);will-change:transform}
+.px-cloud svg{width:100%;height:100%;display:block;shape-rendering:crispEdges}
+.px-cloud.run{animation:px-cloud 1.2s linear both}
+@keyframes px-cloud{from{transform:translateY(50%)}to{transform:translateY(-100%)}}
+.fall{animation:px-fall 4s linear infinite}
+@keyframes px-fall{0%{transform:translateY(-70px);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(400px);opacity:0}}
+.sway{animation:px-sway 1.8s ease-in-out infinite alternate}@keyframes px-sway{from{transform:translateX(-7px)}to{transform:translateX(7px)}}
+.cf,.rf{opacity:0;animation:px-cf .6s steps(1,end) infinite}@keyframes px-cf{0%{opacity:1}25%{opacity:0}100%{opacity:0}}
+.scrl{animation:px-scrl .3846s linear infinite}@keyframes px-scrl{to{transform:translateX(-50px)}}
+.scrc{animation:px-scrc 1s linear infinite}@keyframes px-scrc{to{transform:translateX(-130px)}}
+.seg{animation:px-seg .5s steps(4,end) both}@keyframes px-seg{from{opacity:0}}
+.blk{animation:px-seg .6s steps(4,end) both}
+.shake{animation:px-shake .5s steps(2,end) infinite}@keyframes px-shake{50%{transform:translate(8px,0)}}
+.bob{animation:px-bob 1.2s steps(3,end) infinite alternate}@keyframes px-bob{to{transform:translateY(-14px)}}
+.px-ctl{display:flex;gap:8px;align-items:center}.px-ctl span{font:400 11px 'Press Start 2P',monospace;min-width:56px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.px-stage *{animation-duration:.01ms!important;animation-iteration-count:1!important}.px-bars b.cur i{animation:none;width:100%}.px-cloud{display:none}}
+
+/* ---- koin diambil pelari lalu muncul lagi ---- */
+.pk{transform-box:fill-box;transform-origin:center;opacity:0;animation:px-pk 2.4s linear infinite}
+@keyframes px-pk{
+ 0%{transform:translate(356px,0) scale(0);opacity:0;animation-timing-function:cubic-bezier(.3,1.6,.5,1)}
+ 6%{transform:translate(354px,0) scale(1);opacity:1;animation-timing-function:linear}
+ 60%{transform:translate(190px,0) scale(1);opacity:1;animation-timing-function:cubic-bezier(.2,.8,.3,1)}
+ 72%{transform:translate(198px,-46px) scale(1.25);opacity:1;animation-timing-function:ease-in}
+ 82%,100%{transform:translate(200px,-74px) scale(.3);opacity:0}}
+.spk{opacity:0;animation:px-spk 2.4s linear infinite}
+@keyframes px-spk{0%,60%{opacity:0;transform:translate(0,0) scale(.3)}62%{opacity:1}80%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1)}100%{opacity:0}}
+.pkt{opacity:0;animation:px-pkt 2.4s linear infinite}
+@keyframes px-pkt{0%,60%{opacity:0;transform:translateY(0)}64%{opacity:1}84%{opacity:0;transform:translateY(-34px)}100%{opacity:0}}
+.hop{animation:px-hop 1.2s linear infinite}
+@keyframes px-hop{0%,18%{transform:translateY(0);animation-timing-function:ease-out}28%{transform:translateY(-12px);animation-timing-function:ease-in}42%,100%{transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.cf:first-child,.rf:first-child{opacity:1!important}.pk{animation:none!important;opacity:1;transform:translate(250px,0)}.spk,.pkt{display:none}}
+
+/* ---- slide 6: celengan dipalu ---- */
+.ham{transform-box:view-box;transform-origin:290px 420px;animation:px-ham 2.8s linear infinite}
+@keyframes px-ham{0%{transform:rotate(40deg)}28%{transform:rotate(52deg);animation-timing-function:cubic-bezier(.7,0,.9,.5)}41%{transform:rotate(-75deg)}48%{transform:rotate(-70deg);animation-timing-function:ease-out}62%,100%{transform:rotate(40deg)}}
+.pgi{animation:px-pgi 2.8s steps(1,end) infinite}@keyframes px-pgi{0%{opacity:1}41%{opacity:0}95%{opacity:1}}
+.pgl,.pgr{opacity:0}
+.pgl{transform-box:view-box;transform-origin:168px 424px;animation:px-pgl 2.8s linear infinite}
+.pgr{transform-box:view-box;transform-origin:168px 424px;animation:px-pgr 2.8s linear infinite}
+@keyframes px-pgl{0%,41%{opacity:0;transform:none}41.5%{opacity:1;transform:none;animation-timing-function:ease-in}64%{opacity:1;transform:translate(-26px,22px) rotate(-22deg)}82%{opacity:0;transform:translate(-40px,74px) rotate(-40deg)}100%{opacity:0}}
+@keyframes px-pgr{0%,41%{opacity:0;transform:none}41.5%{opacity:1;transform:none;animation-timing-function:ease-in}64%{opacity:1;transform:translate(26px,22px) rotate(22deg)}82%{opacity:0;transform:translate(40px,74px) rotate(40deg)}100%{opacity:0}}
+.bx{animation:px-bx 2.8s linear infinite}@keyframes px-bx{0%,42%{transform:translateX(0)}92%,100%{transform:translateX(var(--dx))}}
+.by{opacity:0;animation:px-by 2.8s linear infinite}
+@keyframes px-by{0%,42%{opacity:0;transform:translateY(0)}43%{opacity:1;transform:translateY(0);animation-timing-function:ease-out}58%{opacity:1;transform:translateY(calc(var(--pk) * -1));animation-timing-function:ease-in}92%{opacity:1;transform:translateY(110px)}96%,100%{opacity:0;transform:translateY(120px)}}
+.imp{opacity:0;transform-box:fill-box;transform-origin:center;animation:px-imp 2.8s linear infinite}
+@keyframes px-imp{0%,40%{opacity:0;transform:scale(.3)}41.5%{opacity:1;transform:scale(.8)}52%,100%{opacity:0;transform:scale(1.6)}}
+.ptx{opacity:0;transform-box:fill-box;transform-origin:center;animation:px-ptx 2.8s linear infinite}
+@keyframes px-ptx{0%,41%{opacity:0;transform:scale(.4) rotate(-12deg)}44%{opacity:1;transform:scale(1.15) rotate(-12deg)}48%{opacity:1;transform:scale(1) rotate(-12deg)}70%{opacity:1;transform:scale(1) rotate(-12deg)}78%,100%{opacity:0;transform:scale(1) rotate(-12deg)}}
+.shk{animation:px-shk 2.8s linear infinite}
+@keyframes px-shk{0%,41%{transform:none}43%{transform:translate(5px,-3px)}45%{transform:translate(-5px,2px)}47%{transform:translate(3px,0)}49%,100%{transform:none}}
+/* ---- slide 7: juara di podium ---- */
+.spinp{transform-box:fill-box;transform-origin:center;animation:px-spinp 8s steps(24,end) infinite}@keyframes px-spinp{to{transform:rotate(360deg)}}
+.vic{animation:px-vic 1.1s linear infinite}
+@keyframes px-vic{0%{transform:translateY(0);animation-timing-function:cubic-bezier(.2,.7,.4,1)}30%{transform:translateY(-24px);animation-timing-function:cubic-bezier(.6,0,.8,.4)}60%,100%{transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.pgi{opacity:1}.pgl,.pgr,.by,.imp,.ptx{opacity:0}.ham{transform:rotate(40deg)}}
