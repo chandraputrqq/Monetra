@@ -1,0 +1,146 @@
+/* MONETRA: lapisan Glassmorphism (Emerald + Black). Impor PALING AKHIR di main.tsx. */
+
+:root{
+  --glass-blur:18px;
+  --glass-sat:160%;
+}
+
+/* ---------- Latar berpendar agar efek kaca terlihat ---------- */
+.app-shell{position:relative;isolation:isolate}
+.app-shell::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(620px 420px at 12% 8%,#10b98133,transparent 65%),
+    radial-gradient(560px 460px at 92% 22%,#34d3991f,transparent 65%),
+    radial-gradient(700px 520px at 60% 108%,#0d9f6e29,transparent 65%);
+}
+
+/* ================= MODE GELAP ================= */
+html:not([data-theme="light"]) .panel,
+html:not([data-theme="light"]) .metric-card,
+html:not([data-theme="light"]) .metric-card-button,
+html:not([data-theme="light"]) .goal-overview-card,
+html:not([data-theme="light"]) .budget-overview,
+html:not([data-theme="light"]) .report-export,
+html:not([data-theme="light"]) .enhanced-goal-card,
+html:not([data-theme="light"]) .goal-card,
+html:not([data-theme="light"]) .budget-category,
+html:not([data-theme="light"]) .help-card{
+  background:linear-gradient(145deg,#ffffff12,#ffffff06) !important;
+  border:1px solid #ffffff1c !important;
+  box-shadow:0 8px 30px #00000052,inset 0 1px 0 #ffffff14 !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
+}
+html:not([data-theme="light"]) .metric-card-button:hover{
+  background:linear-gradient(145deg,#34d3991f,#ffffff08) !important;
+  border-color:#34d39966 !important;
+}
+html:not([data-theme="light"]) .sidebar{
+  background:#060a08b8 !important;
+  border-right:1px solid #ffffff14;
+  -webkit-backdrop-filter:blur(22px) saturate(150%);backdrop-filter:blur(22px) saturate(150%);
+}
+html:not([data-theme="light"]) .topbar{
+  background:#060a0899 !important;
+  -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
+}
+html:not([data-theme="light"]) .bottom-nav,
+html:not([data-theme="light"]) .more-sheet{
+  background:#09100ccc !important;
+  -webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);
+}
+html:not([data-theme="light"]) .modal,
+html:not([data-theme="light"]) .natasya-drawer,
+html:not([data-theme="light"]) .xt-pop{
+  background:linear-gradient(160deg,#101a15e6,#09100cdd) !important;
+  border:1px solid #ffffff22 !important;
+  box-shadow:0 24px 70px #000000a0,inset 0 1px 0 #ffffff14;
+  -webkit-backdrop-filter:blur(26px) saturate(160%);backdrop-filter:blur(26px) saturate(160%);
+}
+html:not([data-theme="light"]) .chart-tooltip{
+  background:#0c1410cc !important;border:1px solid #ffffff22 !important;
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+}
+html:not([data-theme="light"]) .xt-list li,
+html:not([data-theme="light"]) .calendar-day{background:#ffffff08;border-color:#ffffff12}
+html:not([data-theme="light"]) .modal-backdrop{
+  background:#02060480;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+
+/* ================= MODE TERANG ================= */
+html[data-theme="light"] .app-shell::before{
+  background:
+    radial-gradient(620px 420px at 10% 6%,#34d3993d,transparent 65%),
+    radial-gradient(560px 460px at 94% 24%,#6ee7b733,transparent 65%),
+    radial-gradient(700px 520px at 58% 108%,#10b9812e,transparent 65%);
+}
+html[data-theme="light"] .panel,
+html[data-theme="light"] .metric-card,
+html[data-theme="light"] .metric-card-button,
+html[data-theme="light"] .goal-overview-card,
+html[data-theme="light"] .budget-overview,
+html[data-theme="light"] .report-export,
+html[data-theme="light"] .enhanced-goal-card,
+html[data-theme="light"] .goal-card,
+html[data-theme="light"] .budget-category,
+html[data-theme="light"] .help-card{
+  background:linear-gradient(145deg,#ffffffb8,#ffffff80) !important;
+  border:1px solid #ffffffd9 !important;
+  box-shadow:0 8px 28px #0b3a2a1a,inset 0 1px 0 #ffffffe6 !important;
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+  backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+}
+html[data-theme="light"] .metric-card-button:hover{
+  background:linear-gradient(145deg,#d9f7e8cc,#ffffff99) !important;
+  border-color:#34d39980 !important;
+}
+html[data-theme="light"] .sidebar{
+  background:#ffffffa6 !important;border-right:1px solid #ffffffcc;
+  -webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);
+}
+html[data-theme="light"] .topbar{
+  background:#ffffff80 !important;
+  -webkit-backdrop-filter:blur(20px) saturate(170%);backdrop-filter:blur(20px) saturate(170%);
+}
+html[data-theme="light"] .bottom-nav,
+html[data-theme="light"] .more-sheet{
+  background:#ffffffcc !important;
+  -webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);
+}
+html[data-theme="light"] .modal,
+html[data-theme="light"] .natasya-drawer,
+html[data-theme="light"] .xt-pop{
+  background:linear-gradient(160deg,#ffffffe6,#f3faf6d9) !important;
+  border:1px solid #ffffffe6 !important;
+  box-shadow:0 24px 60px #0b3a2a33,inset 0 1px 0 #fff;
+  -webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);
+}
+html[data-theme="light"] .chart-tooltip{
+  background:#ffffffd9 !important;border:1px solid #08170f1a !important;
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+}
+html[data-theme="light"] .xt-list li,
+html[data-theme="light"] .calendar-day{background:#ffffff66;border-color:#08170f12}
+html[data-theme="light"] .modal-backdrop{
+  background:#0b1a1259;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+
+/* ---------- Transisi halus ---------- */
+.panel,.metric-card,.metric-card-button,.goal-card,.budget-category{
+  transition:border-color var(--t-mid,220ms) var(--ease,ease),background var(--t-mid,220ms) var(--ease,ease),transform var(--t-mid,220ms) var(--ease,ease);
+}
+
+/* ---------- Cadangan: browser tanpa backdrop-filter ---------- */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  html:not([data-theme="light"]) .panel,html:not([data-theme="light"]) .metric-card,html:not([data-theme="light"]) .modal,html:not([data-theme="light"]) .natasya-drawer{background:#0d1511 !important}
+  html[data-theme="light"] .panel,html[data-theme="light"] .metric-card,html[data-theme="light"] .modal,html[data-theme="light"] .natasya-drawer{background:#f3f5f3 !important}
+}
+
+/* ---------- Aksesibilitas & performa ---------- */
+@media (prefers-reduced-transparency:reduce){
+  :root{--glass-blur:0px}
+  html:not([data-theme="light"]) .panel,html:not([data-theme="light"]) .metric-card,html:not([data-theme="light"]) .modal,html:not([data-theme="light"]) .natasya-drawer,html:not([data-theme="light"]) .sidebar{background:#0d1511 !important}
+  html[data-theme="light"] .panel,html[data-theme="light"] .metric-card,html[data-theme="light"] .modal,html[data-theme="light"] .natasya-drawer,html[data-theme="light"] .sidebar{background:#f3f5f3 !important}
+}
+@media (max-width:640px){:root{--glass-blur:12px}}
