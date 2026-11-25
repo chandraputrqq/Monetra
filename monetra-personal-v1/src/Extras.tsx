@@ -4,9 +4,10 @@ import { Mic, Send, ChevronLeft, ChevronRight, AlertTriangle, Repeat, PiggyBank,
 import { DEFAULT_PLAN, L, envelope, findAnomalies, parseVoice, roundUp, subscriptions, todayISO, wrapped } from './insights'
 import type { Plan, Rec, Tx, VoiceDraft } from './insights'
 import { getLang } from './i18n'
-import { scene, art, cloudBank } from './pixelScene'
+import { scene, art, cloudBank, cabinet, roomScene } from './pixelScene'
 import type { ArtOpt } from './pixelScene'
 import './wrapped-pixel.css'
+import './extras.css'
 
 type Fmt = { money: (n: number) => string; cat: (c: string) => string }
 const monthName = (i: number) => new Date(2000, i, 1).toLocaleDateString(getLang() === 'id' ? 'id-ID' : 'en-US', { month: 'long' })
@@ -40,6 +41,18 @@ export function WrappedPage({ transactions, goals, money, cat }: Fmt & { transac
   const years = [...new Set([now, ...transactions.map(t => Number(t.date.slice(0, 4)))])].sort((a, b) => b - a)
   const [year, setYear] = useState(now), [i, setI] = useState(0), [paused, setPaused] = useState(false)
   const down = useRef(0), busy = useRef(false), timers = useRef<number[]>([]), [tr, setTr] = useState(0)
+  const [phase, setPhase] = useState<'off' | 'coin' | 'on' | 'down'>('off'), [hit, setHit] = useState(false), [zoom, setZoom] = useState(false), [collapse, setCollapse] = useState(false)
+  const cab = useMemo(() => cabinet(), []), room = useMemo(() => roomScene(), [])
+  const insert = () => { if (phase !== 'off') return; setPhase('coin'); const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches, desk = window.matchMedia('(min-width: 1000px) and (min-height: 520px) and (orientation: landscape)').matches; timers.current.push(window.setTimeout(() => { setPhase('on'); setZoom(true) }, rm ? 200 : desk ? 3400 : 1800)) }
+  const powerOff = () => {
+    if (phase !== 'on') return
+    timers.current.forEach(t => clearTimeout(t)); timers.current = []; busy.current = false; setHit(false)
+    const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    setPhase('down')
+    timers.current.push(
+      window.setTimeout(() => { setCollapse(true); setZoom(false) }, rm ? 0 : 900),
+      window.setTimeout(() => { setPhase('off'); setCollapse(false); setI(0); setPaused(false) }, rm ? 100 : 1500))
+  }
   useEffect(() => () => timers.current.forEach(t => clearTimeout(t)), [])
   const cloud = useMemo(() => `<svg viewBox="0 0 400 1424" preserveAspectRatio="none" aria-hidden="true">${cloudBank()}</svg>`, [])
   const w = useMemo(() => wrapped(transactions, year, todayISO()), [transactions, year])
@@ -59,6 +72,7 @@ export function WrappedPage({ transactions, goals, money, cat }: Fmt & { transac
   const go = (n: number) => {
     const t = Math.max(0, Math.min(cards.length - 1, n))
     if (t === idx || busy.current) return
+    setHit(true); timers.current.push(window.setTimeout(() => setHit(false), 260))
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setI(t); return }
     busy.current = true; setTr(v => v + 1)
     timers.current.push(window.setTimeout(() => setI(t), 600), window.setTimeout(() => { busy.current = false }, 1200))
@@ -68,6 +82,11 @@ export function WrappedPage({ transactions, goals, money, cat }: Fmt & { transac
     <div className="xt-years" role="group" aria-label={L('Pilih tahun', 'Choose year')}>{years.map(y => <button key={y} className={`secondary-button ${y === year ? 'selected' : ''}`} aria-pressed={y === year} onClick={() => { setYear(y); setI(0) }}>{y}</button>)}</div>
     {!c || !w ? <section className="panel"><p>{L(`Belum ada transaksi di ${year}. Catat beberapa transaksi dulu, lalu Wrapped-mu akan muncul di sini.`, `No transactions in ${year} yet. Log a few and your Wrapped will appear here.`)}</p></section>
       : <div className="px-wrap">
+        <div className="arc-roomwrap"><div className={`arc-camera ${zoom ? 'zoom' : ''} ${phase === 'coin' ? 'slot' : ''}`}><div className="arc-room" aria-hidden="true" dangerouslySetInnerHTML={{ __html: room }} />
+        <div className="arc-cam"><div className={`arc ${phase} ${zoom ? 'zoom' : ''} ${collapse ? 'collapse' : ''} ${hit ? 'hit' : ''}`}>
+          <svg className="arc-svg" viewBox="0 0 400 880" aria-hidden="true" dangerouslySetInnerHTML={{ __html: cab }} />
+          <div className="arc-screen">
+            {phase === 'on' || phase === 'down' ? (
         <div className={`px-stage ${paused ? 'paused' : ''}`} tabIndex={0} role="group" aria-label={`Monetra Wrapped ${year}`}
           onKeyDown={e => { if (e.key === 'ArrowRight') go(idx + 1); else if (e.key === 'ArrowLeft') go(idx - 1); else if (e.key === ' ') { e.preventDefault(); setPaused(p => !p) } }}
           onPointerDown={() => { down.current = Date.now() }}
@@ -85,8 +104,14 @@ export function WrappedPage({ transactions, goals, money, cat }: Fmt & { transac
             {c.again ? <button className="px-again" onClick={e => { e.stopPropagation(); go(0) }}>{L('MAIN LAGI', 'PLAY AGAIN')}</button> : null}
             <i className="px-caret" aria-hidden="true" /></div>
         </div>
-        <div className="px-ctl"><button className="secondary-button" aria-label={L('Sebelumnya', 'Back')} disabled={idx === 0} onClick={() => go(idx - 1)}><ChevronLeft size={16} /></button><span>{idx + 1}/{cards.length}</span>
-          <button className="secondary-button" onClick={() => setPaused(p => !p)}>{paused ? L('Putar', 'Play') : L('Jeda', 'Pause')}</button><button className="primary-button" aria-label={L('Lanjut', 'Next')} disabled={idx === cards.length - 1} onClick={() => go(idx + 1)}><ChevronRight size={16} /></button></div>
+        ) : <div className="arc-attract"><span className="arc-a1">STAGE 00</span><strong className="arc-a2">INSERT COIN</strong><button className="px-again" onClick={insert}>{L('MASUKKAN KOIN', 'INSERT COIN')}</button><span className="arc-a3">{L('Ketuk koin atau tombol ini', 'Tap the coin or this button')}</span></div>}
+            {phase === 'down' ? <div className="arc-err" aria-hidden="true"><b>ERROR</b><span>{L('DAYA PADAM', 'POWER LOSS')}</span></div> : null}
+            <div className="arc-glass" aria-hidden="true" />
+          </div>
+          <button className="arc-slot" aria-label={L('Masukkan koin', 'Insert coin')} onClick={insert} tabIndex={phase === 'off' ? 0 : -1} />
+        </div></div></div></div>
+        {phase === 'on' ? (<div className="px-ctl"><button className="secondary-button" aria-label={L('Sebelumnya', 'Back')} disabled={idx === 0} onClick={() => go(idx - 1)}><ChevronLeft size={16} /></button><span>{idx + 1}/{cards.length}</span>
+          <button className="secondary-button" onClick={() => setPaused(p => !p)}>{paused ? L('Putar', 'Play') : L('Jeda', 'Pause')}</button><button className="primary-button" aria-label={L('Lanjut', 'Next')} disabled={idx === cards.length - 1} onClick={() => go(idx + 1)}><ChevronRight size={16} /></button><button className="secondary-button" onClick={powerOff}>{L('Matikan', 'Power off')}</button></div>) : null}
       </div>}
   </div>
 }
@@ -107,7 +132,7 @@ export function SmartPage({ transactions, recurring, goals, month, money, cat, p
   const avail = Math.max(0, ru.total - ((roundDone || {})[month] || 0))
   const unusedYear = subs.rules.filter(s => marks[s.name] === 'unused').reduce((a, s) => a + s.monthly * 12, 0)
   const mark = (name: string, v: 'used' | 'unused') => onPatch('subMarks', { ...marks, [name]: marks[name] === v ? undefined : v })
-  return <div className="page-stack">
+  return <div className="page-stack xt-page">
     <div className="page-heading"><h1>{L('Asisten Pintar', 'Smart Assistant')}</h1><p>{L('Natasya membaca polamu secara lokal: tanpa server, datamu tetap di perangkat ini.', 'Natasya reads your patterns locally: no server, your data stays on this device.')}</p></div>
     <section className="panel"><h2><AlertTriangle size={16} /> {L('Pengeluaran janggal', 'Unusual spending')}</h2>
       {anomalies.length === 0 ? <p className="xt-mute">{L('Belum ada yang janggal. Pengeluaranmu terlihat wajar. 💚', 'Nothing unusual. Your spending looks normal. 💚')}</p>
@@ -123,8 +148,8 @@ export function SmartPage({ transactions, recurring, goals, month, money, cat, p
         <ul className="xt-list">{subs.detected.map(d => <li key={d.name}><b>{d.name}</b><span>{L(`≈ ${money(d.monthly)} tiap bulan selama ${d.months} bulan`, `≈ ${money(d.monthly)} monthly for ${d.months} months`)}</span></li>)}</ul></>}</section>
     <section className="panel"><h2><Wallet size={16} /> {L('Amplop gaji', 'Salary envelopes')}</h2>
       <p className="xt-mute">{env.income > 0 ? L(`Dari pemasukan bulan ini ${money(env.income)}:`, `From this month’s income of ${money(env.income)}:`) : L('Belum ada pemasukan bulan ini. Catat gaji dulu agar amplopnya terhitung.', 'No income this month yet. Log your salary to fill the envelopes.')}</p>
-      <div className="xt-split"><label>{L('Kebutuhan', 'Needs')} {p.needs}%<input type="range" min={0} max={100} value={p.needs} onChange={e => onPatch('plan', { needs: Number(e.target.value), wants: Math.min(p.wants, 100 - Number(e.target.value)) })} /></label>
-        <label>{L('Keinginan', 'Wants')} {p.wants}%<input type="range" min={0} max={100 - p.needs} value={p.wants} onChange={e => onPatch('plan', { ...p, wants: Number(e.target.value) })} /></label></div>
+      <div className="xt-split"><label>{L('Kebutuhan', 'Needs')} {p.needs}%<input type="range" min={0} max={100} value={p.needs} style={{ '--v': `${p.needs}%` } as any} onChange={e => onPatch('plan', { needs: Number(e.target.value), wants: Math.min(p.wants, 100 - Number(e.target.value)) })} /></label>
+        <label>{L('Keinginan', 'Wants')} {p.wants}%<input type="range" min={0} max={100 - p.needs} value={p.wants} style={{ '--v': `${p.needs >= 100 ? 0 : Math.round((p.wants / (100 - p.needs)) * 100)}%` } as any} onChange={e => onPatch('plan', { ...p, wants: Number(e.target.value) })} /></label></div>
       {env.rows.map(r => { const pct = r.planned > 0 ? Math.min(100, (r.actual / r.planned) * 100) : 0; const over = r.key !== 'save' && r.actual > r.planned && r.planned > 0
         return <div className="xt-env" key={r.key}><div><b>{r.label} {r.pct}%</b><span className={over ? 'xt-over' : ''}>{money(r.actual)} / {money(r.planned)}</span></div><div className="progress-track"><span className={over ? 'warn' : ''} style={{ width: `${pct}%` }} /></div></div> })}</section>
     <section className="panel"><h2><PiggyBank size={16} /> {L('Pembulatan tabungan', 'Round-up savings')}</h2>
