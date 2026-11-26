@@ -1,0 +1,33 @@
+/* Lapisan penyederhanaan: ratakan tampilan (tanpa gradien, blur, bayangan, animasi). Warna tema tetap dari file tema. */
+*,*::before,*::after{animation:none!important;transition:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.app-shell,.report-cover,.panel,.metric-card,.modal,.sidebar,.topbar,.more-sheet,.bottom-nav{background-image:none!important;box-shadow:none!important}
+.page-enter,.metric-card{opacity:1!important;transform:none!important}
+.app-shell::before,.app-shell::after,.page-content::before{display:none!important}
+
+/* Sidebar: ringkas */
+.nav-more{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.nav-more summary{cursor:pointer;list-style:none;font-size:12px;color:var(--muted);padding:8px 13px;border-radius:7px}
+.nav-more summary::-webkit-details-marker{display:none}
+.nav-more summary::after{content:'▾';float:right}
+.nav-more[open] summary::after{content:'▴'}
+.nav-group-label,.nav-item i,.breadcrumb .crumb-slash,.breadcrumb>span:first-child{display:none!important}
+.brand small{display:none}
+
+/* Dashboard sederhana */
+.simple-dash{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.simple-dash .overview-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.simple-title{font-size:20px;font-weight:600;margin:0}
+.simple-balance{padding:22px 20px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.simple-balance span,.simple-stat span{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.simple-balance strong{font-size:clamp(28px,6vw,40px);font-weight:600;letter-spacing:-1px}
+.simple-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.simple-stat{padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.simple-stat strong{font-size:clamp(16px,3.6vw,22px);font-weight:600}
+.simple-stat .pos{color:var(--green)}.simple-stat .neg{color:var(--red)}
+.simple-dash .panel{padding:18px;border-radius:12px}
+.simple-dash .panel-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.simple-dash .panel-heading h2{font-size:15px;margin:0}
+.simple-dash .text-link{font-size:12px}
+.topbar .primary-button.small{height:34px;padding:0 12px}
+.topbar .today-label{display:none}
+@media(max-width:650px){.topbar .primary-button.small{display:none}}
