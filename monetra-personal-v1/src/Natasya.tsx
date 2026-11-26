@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { Sparkles, X, ArrowUp, Trash2 } from 'lucide-react'
-import { t } from './i18n'
+import { Sparkles, X, ArrowUp, Trash2, Mic } from 'lucide-react'
+import { t, getLang } from './i18n'
 import { answerQuestion, dailyInsight, greeting, postSaveInsight } from './natasya-brain'
-import type { BotResult, Budget, DebtLite, Draft, GoalLite, Tx } from './natasya-brain'
+import type { BotAction, BotResult, Budget, DebtLite, Draft, GoalLite, Tx } from './natasya-brain'
 import type { Challenge } from './features'
+import { parseVoice } from './insights'
+import type { Plan, Rec } from './insights'
 
-type Msg = { id: number; from: 'bot' | 'me'; text?: string; draft?: Draft; status?: 'pending' | 'saved' | 'cancelled'; followUps?: string[] }
+type Msg = { id: number; from: 'bot' | 'me'; text?: string; draft?: Draft; status?: 'pending' | 'saved' | 'cancelled'; followUps?: string[]; action?: BotAction; actionStatus?: 'pending' | 'done' | 'cancelled' }
 
 const QUICK: { icon: string; key: string }[] = [
   { icon: '👋', key: 'n.q9' }, { icon: '✨', key: 'n.q10' },
   { icon: '💡', key: 'n.q1' }, { icon: '📊', key: 'n.q2' }, { icon: '💰', key: 'n.q3' }, { icon: '🎯', key: 'n.q4' },
   { icon: '⚠️', key: 'n.q5' }, { icon: '📅', key: 'n.q6' }, { icon: '📉', key: 'n.q7' },
+  { icon: '🔎', key: 'n.q15' }, { icon: '🔁', key: 'n.q16' }, { icon: '💌', key: 'n.q17' }, { icon: '🪙', key: 'n.q18' },
   { icon: '🔮', key: 'n.q11' }, { icon: '🆚', key: 'n.q12' }, { icon: '🗓️', key: 'n.q13' }, { icon: '🏆', key: 'n.q14' }, { icon: '❓', key: 'n.q8' }
 ]
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
@@ -29,6 +32,12 @@ type ChatProps = {
   money: (n: number) => string
   expenseCats: string[]; incomeCats: string[]
   onSave: (tx: Tx) => void
+  // Fitur pintar (dulu halaman Asisten Pintar) dan suara kini ada di chat ini.
+  recurring?: Rec[]; plan?: Plan; subMarks?: Record<string, 'used' | 'unused'>; roundStep?: number; roundDone?: Record<string, number>
+  cat?: (c: string) => string
+  onPatch?: (key: string, value: unknown) => void
+  onDeposit?: (goalId: string, amount: number) => void
+  onToast?: (m: string) => void
 }
 
 export function NatasyaChat(props: ChatProps) {
@@ -54,7 +63,7 @@ export function NatasyaChat(props: ChatProps) {
 
   const ctx = useCallback(() => {
     const p = propsRef.current
-    return { transactions: p.transactions, budgets: p.budgets, goals: p.goals || [], debts: p.debts || [], challenges: p.challenges || [], month: p.month, today: todayIso(), money: p.money, expenseCats: p.expenseCats, incomeCats: p.incomeCats }
+    return { transactions: p.transactions, budgets: p.budgets, goals: p.goals || [], debts: p.debts || [], challenges: p.challenges || [], recurring: p.recurring || [], plan: p.plan, subMarks: p.subMarks, roundStep: p.roundStep, roundDone: p.roundDone, cat: p.cat, month: p.month, today: todayIso(), money: p.money, expenseCats: p.expenseCats, incomeCats: p.incomeCats }
   }, [])
 
   const cancelPending = useCallback(() => {
@@ -126,19 +135,25 @@ export function NatasyaChat(props: ChatProps) {
     timerRef.current = window.setTimeout(() => {
       if (token !== tokenRef.current) return
       timerRef.current = null
-      setMsgs(m => [...m, { id: idRef.current++, from: 'bot', text: result.text, draft: result.draft, status: result.draft ? 'pending' : undefined, followUps: result.followUps }])
+      setMsgs(m => [...m, { id: idRef.current++, from: 'bot', text: result.text, draft: result.draft, status: result.draft ? 'pending' : undefined, followUps: result.followUps, action: result.action, actionStatus: result.action ? 'pending' : undefined }])
       setTyping(false)
     }, delay)
   }
 
-  const send = (text: string) => {
+  const send = (text: string, fromVoice = false) => {
     const q = text.trim()
     if (!q) return
     const previousMessages = msgs
     setMsgs(m => [...m, { id: idRef.current++, from: 'me', text: q }])
     setInput('')
 
-    const local = answerQuestion(ctx(), q)
+    let local = answerQuestion(ctx(), q)
+    // Ucapan seperti “kopi dua puluh lima ribu” (angka berupa kata) dibaca parser suara.
+    if (fromVoice && !local.draft) {
+      const v = parseVoice(q)
+      if (v) local = { draft: { name: v.name, amount: v.amount, type: v.type, category: v.category, date: v.date } }
+      else if (!local.action && !local.followUps?.length) { propsRef.current.onToast?.(t('n.voiceFail')) }
+    }
     // Pencatatan transaksi tetap memakai parser lokal dan selalu meminta konfirmasi.
     if (local.draft) {
       botReply(() => ({ ...local, text: t('n.draft') }))
@@ -159,6 +174,46 @@ export function NatasyaChat(props: ChatProps) {
     // Proactive heads-up using the data including the new transaction.
     const heads = postSaveInsight({ ...ctx(), transactions: [tx, ...propsRef.current.transactions] }, tx)
     if (heads) botReply(() => heads)
+  }
+
+  // ---- suara (Web Speech API, tanpa server) ----
+  const [live, setLive] = useState(false)
+  const recRef = useRef<any>(null)
+  useEffect(() => () => { try { recRef.current?.abort() } catch { /* abaikan */ } }, [])
+  useEffect(() => { if (!open) { try { recRef.current?.abort() } catch { /* abaikan */ } setLive(false) } }, [open])
+  const listen = () => {
+    if (live) { try { recRef.current?.stop() } catch { /* abaikan */ } return }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SR) { propsRef.current.onToast?.(t('n.noMic')); return }
+    const r = new SR(); r.lang = getLang() === 'id' ? 'id-ID' : 'en-US'; r.interimResults = true; r.continuous = false
+    r.onresult = (e: any) => {
+      const txt = Array.from(e.results).map((x: any) => x[0].transcript).join(' ')
+      setInput(txt)
+      if (e.results[e.results.length - 1].isFinal) send(txt, true)
+    }
+    r.onend = () => setLive(false)
+    r.onerror = () => { setLive(false); propsRef.current.onToast?.(t('n.micErr')) }
+    recRef.current = r; setLive(true)
+    try { r.start() } catch { setLive(false) }
+  }
+
+  // ---- aksi dari fitur pintar: selalu lewat konfirmasi ----
+  const runAction = (msg: Msg) => {
+    const a = msg.action, p = propsRef.current
+    if (!a || msg.actionStatus !== 'pending') return
+    if (a.kind === 'roundup') {
+      p.onDeposit?.(a.goalId, a.amount)
+      p.onPatch?.('roundDone', { ...(p.roundDone || {}), [p.month]: ((p.roundDone || {})[p.month] || 0) + a.amount })
+      p.onToast?.(t('n.moved'))
+    } else if (a.kind === 'plan') {
+      p.onPatch?.('plan', { needs: a.needs, wants: a.wants })
+      p.onToast?.(t('n.planSet'))
+    } else {
+      const marks = p.subMarks || {}
+      p.onPatch?.('subMarks', { ...marks, [a.name]: a.mark })
+      p.onToast?.(t('n.markSet'))
+    }
+    setMsgs(m => m.map(x => (x.id === msg.id ? { ...x, actionStatus: 'done' } : x)))
   }
 
   const clearChat = () => {
@@ -210,6 +265,11 @@ export function NatasyaChat(props: ChatProps) {
           </div>
           {m.status === 'pending' && <small className="nat-hint">{t('n.safe')}</small>}
         </>}
+        {m.action && <div className="nat-actions">
+          {m.actionStatus === 'pending' && <><button className="primary-button" onClick={() => runAction(m)}>{t('n.confirm')}</button><button className="secondary-button" onClick={() => setMsgs(ms => ms.map(x => (x.id === m.id ? { ...x, actionStatus: 'cancelled' } : x)))}>{t('n.cancel')}</button></>}
+          {m.actionStatus === 'done' && <span className="nat-state">{t('n.done')}</span>}
+          {m.actionStatus === 'cancelled' && <span className="nat-state off">{t('n.cancelled')}</span>}
+        </div>}
       </div>)}
       {onlyGreeting && !typing && <div className="nat-quick" aria-label={t('n.quickLabel')}>
         {QUICK.map(q => <button key={q.key} onClick={() => send(t(q.key))}><span aria-hidden="true">{q.icon}</span>{t(q.key)}</button>)}
@@ -224,7 +284,8 @@ export function NatasyaChat(props: ChatProps) {
       {strip ? strip.map(f => <button key={f} onClick={() => send(f)}>{f}</button>) : QUICK.map(q => <button key={q.key} onClick={() => send(t(q.key))}><span aria-hidden="true">{q.icon}</span> {t(q.key)}</button>)}
     </div>}
     <form className="nat-form" onSubmit={submit}>
-      <input value={input} onChange={e => setInput(e.target.value)} placeholder={t('n.placeholder')} aria-label={t('n.placeholder')} />
+      <input value={input} onChange={e => setInput(e.target.value)} placeholder={live ? t('n.listening') : t('n.placeholder')} aria-label={t('n.placeholder')} />
+      <button type="button" className={`nat-mic ${live ? 'xt-live' : ''}`} onClick={listen} aria-pressed={live} aria-label={live ? t('n.micStop') : t('n.mic')} title={live ? t('n.micStop') : t('n.mic')}><Mic size={18} /></button>
       <button type="submit" aria-label={t('n.send')} disabled={!input.trim()}><ArrowUp size={18} /></button>
     </form>
     <p className="nat-note">{t('n.privacy')}</p>
