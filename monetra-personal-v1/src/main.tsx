@@ -5,7 +5,6 @@ import './styles.css'
 import './theme.css'
 import './pie.css'
 import './theme-light.css'
-import './theme-glass.css'
-import './glass.css'
+import './simple.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>)
