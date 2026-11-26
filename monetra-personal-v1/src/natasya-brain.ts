@@ -4,6 +4,8 @@ import { getLang } from './i18n'
 import { pickQuote } from './reminders'
 import { evaluateChallenge, challengeTitle } from './features'
 import type { Challenge } from './features'
+import { DEFAULT_PLAN, envelope, findAnomalies, roundUp, subscriptions } from './insights'
+import type { Plan, Rec } from './insights'
 
 export type TxType = 'income' | 'expense'
 export type Tx = { id: string; name: string; amount: number; type: TxType; category: string; date: string; notes?: string; recurringId?: string }
@@ -19,8 +21,16 @@ export type Ctx = {
   money: (n: number) => string
   expenseCats: string[]; incomeCats: string[]
   challenges?: Challenge[]
+  // Data untuk fitur pintar (anomali, langganan, amplop gaji, pembulatan) yang kini dijawab Natasya.
+  recurring?: Rec[]; plan?: Plan; subMarks?: Record<string, 'used' | 'unused'>
+  roundStep?: number; roundDone?: Record<string, number>; cat?: (c: string) => string
 }
-export type BotResult = { text?: string; draft?: Draft; followUps?: string[] }
+// Aksi yang mengubah data selalu menunggu konfirmasi (tombol) di chat.
+export type BotAction =
+  | { kind: 'roundup'; goalId: string; goalName: string; amount: number }
+  | { kind: 'plan'; needs: number; wants: number }
+  | { kind: 'mark'; name: string; mark: 'used' | 'unused' }
+export type BotResult = { text?: string; draft?: Draft; action?: BotAction; followUps?: string[] }
 
 const tr = (id: string, en: string) => (getLang() === 'id' ? id : en)
 const monthShift = (key: string, offset: number) => {
@@ -691,6 +701,78 @@ const QUESTION = /\?|\b(apa|apakah|bagaimana|gimana|berapa|kapan|kenapa|mengapa|
 
 const GREET = /^(hai|halo|hallo|hi|hello|hey|hei|hola|selamat (pagi|siang|sore|malam)|assalamu'?alaikum|pagi|siang|sore|malam)\b/
 const MOTIVATE = /(semangat|motivasi|inspirasi|kata.?kata|quotes?\b|motivat|inspire|cheer|romantis|romantic|gombal)/
+
+// ---------------------------------------------------------------- fitur pintar (dulu halaman "Asisten Pintar")
+const SMART_RE = /janggal|anomali|anomaly|aneh|tidak biasa|unusual|lonjakan|spike|langganan|subscription|amplop|envelope|pembulatan|bulatkan|round.?up|receh|asisten pintar|smart assistant|fitur pintar/i
+function smartAnswer(c: Ctx, q: string): BotResult | null {
+  const l = q.toLowerCase()
+  if (!SMART_RE.test(l)) return null
+  const cat = c.cat || ((x: string) => x)
+  const plan = c.plan || DEFAULT_PLAN
+  const marks = c.subMarks || {}
+  const subs = subscriptions(c.transactions, c.recurring || [])
+
+  // Tandai langganan: "tandai Netflix tidak dipakai" / "mark Netflix as still using"
+  const markWord = /(tandai|tandain|mark)/.test(l)
+  if (markWord) {
+    const rule = subs.rules.find(r => l.includes(r.name.trim().toLowerCase()))
+    const unused = /tidak dipakai|ga dipakai|nggak dipakai|gak dipakai|unused|not using|stop/.test(l)
+    const used = /masih dipakai|still using|dipakai/.test(l)
+    if (rule && (unused || used)) {
+      const mark: 'used' | 'unused' = unused ? 'unused' : 'used'
+      return { text: tr(`Oke, **${rule.name}** mau kutandai “${mark === 'unused' ? 'tidak dipakai' : 'masih dipakai'}”? Tekan konfirmasi ya.`, `Mark **${rule.name}** as “${mark === 'unused' ? 'not using' : 'still using'}”? Please confirm.`), action: { kind: 'mark', name: rule.name, mark } }
+    }
+    if (!rule) return { text: tr('Aku tidak menemukan langganan dengan nama itu. Tanya “langganan saya” untuk melihat daftarnya.', 'I could not find a subscription with that name. Ask “my subscriptions” to see the list.'), followUps: [tr('Langganan saya', 'My subscriptions')] }
+  }
+
+  if (/amplop|envelope/.test(l)) {
+    const m = l.match(/(\d{1,3})\s*[\/,\-\s]\s*(\d{1,3})/)
+    if (m) {
+      const needs = Number(m[1]), wants = Number(m[2])
+      if (needs + wants <= 100) return { text: tr(`Ubah pembagian amplop jadi **${needs}% kebutuhan**, **${wants}% keinginan**, **${100 - needs - wants}% tabungan**? Tekan konfirmasi ya.`, `Change the envelope split to **${needs}% needs**, **${wants}% wants**, **${100 - needs - wants}% savings**? Please confirm.`), action: { kind: 'plan', needs, wants } }
+    }
+    const env = envelope(c.transactions, c.month, plan)
+    if (env.income <= 0) return { text: tr('💌 **Amplop gaji**\nBelum ada pemasukan bulan ini. Catat gaji dulu (mis. “gaji 5jt”) supaya amplopnya terhitung.', '💌 **Salary envelopes**\nNo income this month yet. Log your salary first (e.g. “salary 5m”) so the envelopes can be filled.'), followUps: [tr('Prediksi sisa uang bulan ini.', 'Forecast my money this month.')] }
+    const rows = env.rows.map(r => {
+      const over = r.key !== 'save' && r.planned > 0 && r.actual > r.planned
+      return `• **${r.label} ${r.pct}%**: ${c.money(r.actual)} / ${c.money(r.planned)}${over ? ' ⚠️' : ''}`
+    })
+    return { text: [tr(`💌 **Amplop gaji** (dari pemasukan ${c.money(env.income)})`, `💌 **Salary envelopes** (from income of ${c.money(env.income)})`), ...rows, '', tr('Ingin ubah pembagiannya? Tulis mis. “amplop 60/30”, artinya 60% kebutuhan dan 30% keinginan.', 'Want a different split? Write e.g. “envelope 60/30”: 60% needs and 30% wants.')].join('\n'), followUps: [tr('Amplop 60/30', 'Envelope 60/30'), tr('Pembulatan tabungan', 'Round-up savings')] }
+  }
+
+  if (/pembulatan|bulatkan|round.?up|receh/.test(l)) {
+    const step = c.roundStep || 5000
+    const ru = roundUp(c.transactions, c.month, step)
+    const avail = Math.max(0, ru.total - ((c.roundDone || {})[c.month] || 0))
+    const open = c.goals.filter(g => g.saved < g.target && !g.paused && !g.completed)
+    const head = tr(`🪙 **Pembulatan tabungan** (dibulatkan ke ${c.money(step)})\n${ru.count} pengeluaran bulan ini menghasilkan ${c.money(ru.total)}. Siap dipindahkan: **${c.money(avail)}**.`, `🪙 **Round-up savings** (rounded to ${c.money(step)})\n${ru.count} expenses this month make ${c.money(ru.total)}. Ready to move: **${c.money(avail)}**.`)
+    if (avail <= 0) return { text: head, followUps: [tr('Target tabungan saya', 'My savings goals')] }
+    if (open.length === 0) return { text: head + '\n' + tr('Buat target tabungan dulu untuk menampung pembulatan.', 'Create a savings goal first to receive the round-up.') }
+    const g = open[0]
+    return { text: head + '\n' + tr(`Pindahkan ke target **${g.name}**?`, `Move it to your **${g.name}** goal?`), action: { kind: 'roundup', goalId: g.id, goalName: g.name, amount: avail } }
+  }
+
+  if (/langganan|subscription/.test(l)) {
+    const unusedYear = subs.rules.filter(r => marks[r.name] === 'unused').reduce((a, r) => a + r.monthly * 12, 0)
+    const lines: string[] = [tr('🔁 **Langganan**', '🔁 **Subscriptions**')]
+    if (subs.rules.length === 0 && subs.detected.length === 0) lines.push(tr('Belum ada langganan. Tambahkan transaksi berulang untuk tagihan rutin.', 'No subscriptions yet. Add recurring transactions for regular bills.'))
+    subs.rules.forEach(r => lines.push(`• **${r.name}**: ${c.money(r.monthly)}/${tr('bln', 'mo')} · ${c.money(r.monthly * 12)}/${tr('thn', 'yr')} · ${cat(r.category)}${marks[r.name] === 'unused' ? ' ❌' : marks[r.name] === 'used' ? ' ✅' : ''}`))
+    if (unusedYear > 0) lines.push('', tr(`Kalau yang tidak dipakai dihentikan, kamu hemat **${c.money(unusedYear)}** per tahun.`, `Cancelling what you do not use saves **${c.money(unusedYear)}** a year.`))
+    if (subs.detected.length) { lines.push('', tr('Terdeteksi berulang, belum jadi transaksi berulang:', 'Looks recurring, not set up yet:')); subs.detected.forEach(d => lines.push(`• **${d.name}**: ≈ ${c.money(d.monthly)} ${tr(`tiap bulan selama ${d.months} bulan`, `monthly for ${d.months} months`)}`)) }
+    if (subs.rules.length) lines.push('', tr(`Tulis mis. “tandai ${subs.rules[0].name} tidak dipakai” untuk menandai.`, `Write e.g. “mark ${subs.rules[0].name} not using” to flag one.`))
+    return { text: lines.join('\n'), followUps: subs.rules.length ? [tr(`Tandai ${subs.rules[0].name} tidak dipakai`, `Mark ${subs.rules[0].name} not using`)] : [tr('Pengeluaran janggal', 'Unusual spending')] }
+  }
+
+  if (/janggal|anomali|anomaly|aneh|tidak biasa|unusual|lonjakan|spike/.test(l)) {
+    const list = findAnomalies(c.transactions, c.today, c.money, cat)
+    if (list.length === 0) return { text: tr('🔎 **Pengeluaran janggal**\nBelum ada yang janggal. Pengeluaranmu terlihat wajar. 💚\n\nCatatan: butuh minimal 5 transaksi per kategori dalam 4 bulan terakhir agar perbandingannya adil.', '🔎 **Unusual spending**\nNothing unusual. Your spending looks normal. 💚\n\nNote: needs at least 5 transactions per category in the last 4 months for a fair comparison.'), followUps: [tr('Langganan saya', 'My subscriptions')] }
+    return { text: [tr('🔎 **Pengeluaran janggal**', '🔎 **Unusual spending**'), ...list.map(a => `• **${a.title}**: ${a.detail}`)].join('\n'), followUps: [tr('Analisis pengeluaran saya', 'Analyze my spending'), tr('Saran hemat', 'Saving tips')] }
+  }
+
+  // Menu asisten pintar
+  return { text: tr('🧠 **Asisten pintar Natasya**\nSemua dihitung lokal dari datamu. Aku bisa:\n• Mencari pengeluaran janggal\n• Merangkum langganan dan potensi hemat\n• Membagi gaji ke amplop kebutuhan, keinginan, tabungan\n• Membulatkan pengeluaran jadi tabungan\n• Mencatat lewat suara: tekan ikon mikrofon di kolom ketik', '🧠 **Natasya smart assistant**\nEverything is computed locally from your data. I can:\n• Spot unusual spending\n• Summarize subscriptions and savings potential\n• Split your salary into needs, wants, and savings envelopes\n• Round expenses up into savings\n• Log by voice: tap the microphone icon in the text box'), followUps: [tr('Pengeluaran janggal', 'Unusual spending'), tr('Langganan saya', 'My subscriptions'), tr('Amplop gaji', 'Salary envelopes'), tr('Pembulatan tabungan', 'Round-up savings')] }
+}
+
 export function answerQuestion(c: Ctx, raw: string): BotResult {
   const q = raw.trim(), l = q.toLowerCase()
   const amt = parseAmount(q)
@@ -721,6 +803,8 @@ export function answerQuestion(c: Ctx, raw: string): BotResult {
   }
   if (/^(terima kasih|makasih|thanks|thank you|thx)/.test(l)) return { text: tr('Sama-sama! Senang bisa membantu 😊', 'You are welcome! Happy to help 😊') }
   if (/(hapus|bersihkan|clear|reset|delete).{0,10}(chat|percakapan|obrolan)/.test(l)) return { text: tr('Untuk menghapus percakapan, tekan ikon tempat sampah di kanan atas chat ini. Transaksi yang sudah tersimpan tidak ikut terhapus.', 'To clear the conversation, press the trash icon at the top right of this chat. Saved transactions are not affected.') }
+
+  if (!(amt && !/amplop|envelope|tandai|mark/i.test(l))) { const sm = smartAnswer(c, q); if (sm) return sm }
 
   const g = guideFor(l); if (g) return g
 
