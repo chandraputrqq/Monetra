@@ -217,19 +217,8 @@ tbody tr:hover{background:#ffffff05}
   .confirm-modal{border-radius:20px}
 }
 
-/* ---------- Tablet: sidebar mode ikon ---------- */
+/* ---------- Tablet: tata letak dashboard (sidebar diatur lewat .is-rail di extras.css) ---------- */
 @media(min-width:651px) and (max-width:1024px){
-  .sidebar{width:72px;padding:20px 10px 12px;overflow:visible}
-  .main-area{margin-left:72px}
-  .brand>span:not(.brand-mark),.nav-group-label,.nav-item span,.sidebar-bottom .profile>div:nth-child(2),.sidebar-bottom .profile>svg{display:none}
-  .brand{justify-content:center;padding:0}
-  .sidebar nav{overflow:visible;gap:10px}
-  .nav-group+.nav-group{border-top:1px solid var(--line);padding-top:10px}
-  .nav-item{justify-content:center;padding:0;width:100%}
-  .nav-item.active i{left:-10px}
-  .nav-item[data-tip]::after{display:block}
-  .nav-item:hover::after,.nav-item:focus-visible::after{opacity:1;transform:translate(0,-50%)}
-  .sidebar-bottom .profile{justify-content:center;padding:12px 0 3px}
   .topbar{padding:0 22px}
   .page-content{padding:24px 22px 48px}
   .dashboard-grid{grid-template-columns:1fr 1fr}
