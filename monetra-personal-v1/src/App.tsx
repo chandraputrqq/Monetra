@@ -15,14 +15,7 @@ import type { ReactNode, FormEvent, ChangeEvent } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import {
-  LayoutDashboard, ArrowLeftRight, Wallet, ChartNoAxesCombined, CalendarDays,
-  Target, FileText, Settings, Plus, Search, Bell, ChevronDown, ChevronLeft,
-  ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2,
-  X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal,
-  Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, RefreshCw, Users, Languages, PawPrint,
-  UtensilsCrossed, Car, ShoppingBag, Clapperboard, GraduationCap, Zap, HeartPulse, Home, Repeat, Shapes, Eye, EyeOff, Sun, Moon, SunMoon
-} from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Wallet, ChartNoAxesCombined, CalendarDays, Target, FileText, Settings, Plus, Search, Bell, ChevronDown, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, MoreHorizontal, Pencil, Trash2, X, Download, Upload, TrendingUp, TrendingDown, CircleHelp, SlidersHorizontal, Menu, Check, AlertTriangle, PiggyBank, CircleDollarSign, Sparkles, RotateCcw, Trophy, RefreshCw, Users, Languages, PawPrint, UtensilsCrossed, Car, ShoppingBag, Clapperboard, GraduationCap, Zap, HeartPulse, Home, Repeat, Shapes, Eye, EyeOff, Sun, Moon, SunMoon, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, Sector, BarChart, Bar, Legend
@@ -126,6 +119,9 @@ export default function App() {
   const [page,setPageState] = useState<Page>(()=>{try{const v=localStorage.getItem('monetra-page') as Page|null;return v&&NAV.some(n=>n.label===v)?v:'Dashboard'}catch{return 'Dashboard'}})
   const setPage = (p:Page)=>{setPageState(p);try{localStorage.setItem('monetra-page',p)}catch{/* ignore */}}
   // Sidebar mode ikon: nama menu muncul sebentar saat ikon diklik
+  // Sidebar: default lebar (ikon + nama) agar mudah dipahami; bisa diciutkan jadi ikon saja dan pilihan itu diingat.
+  const [navRail,setNavRail]=useState<boolean>(()=>{try{const v=localStorage.getItem('monetra-rail');if(v!==null)return v==='1';return window.innerWidth<1100}catch{return false}})
+  const toggleRail=()=>setNavRail(v=>{const n=!v;try{localStorage.setItem('monetra-rail',n?'1':'0')}catch{/* ignore */}return n})
   const [navTip,setNavTip]=useState<string|null>(null)
   useEffect(()=>{if(!navTip)return;const id=window.setTimeout(()=>setNavTip(null),1800);return()=>window.clearTimeout(id)},[navTip])
   const [month,setMonth] = useState(currentMonth)
@@ -391,11 +387,12 @@ export default function App() {
     }
   }
 
-  return <div className={`app-shell ${hideNums?'privacy-on':''}`}>
+  return <div className={`app-shell ${hideNums?'privacy-on':''} ${navRail?'is-rail':''}`}>
     <aside className={`sidebar ${mobileNav?'sidebar-open':''}`}>
       <div className="brand"><div className="brand-mark"><span /></div><span>monetra</span><small>{tr("STUDENT FINANCE")}</small></div>
       <nav aria-label={t('workspace')}>{NAV_GROUPS.map(g=><div className="nav-group" key={g.key}><div className="nav-group-label">{t(g.key)}</div>{g.items.map(label=>{const Icon=NAV.find(n=>n.label===label)!.icon;return <button key={label} className={`nav-item ${page===label?'active':''} ${navTip===label?'tip-on':''}`} onClick={()=>{setPage(label);setMobileNav(false);setNavTip(label)}} title={t('nav.'+label)} data-tip={t('nav.'+label)} aria-current={page===label?'page':undefined}><Icon size={18}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>})}</div>)}</nav>
       <div className="sidebar-bottom">
+        <button className="nav-item rail-toggle" onClick={toggleRail} data-tip={navRail?Lx('Lebarkan menu','Expand menu'):''} aria-label={navRail?Lx('Lebarkan menu','Expand menu'):Lx('Ciutkan menu','Collapse menu')} aria-pressed={navRail}>{navRail?<ChevronsRight size={18}/>:<ChevronsLeft size={18}/>}<span>{Lx('Ciutkan menu','Collapse menu')}</span></button>
         <div className="profile" role="button" tabIndex={0} onClick={()=>{setPage('Profile');setMobileNav(false)}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){setPage('Profile');setMobileNav(false)}}}><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={30}/><div><strong>{profilePrefs.name.trim()||tr("My workspace")}</strong><span>{myAnimal.emoji} {getLang()==='id'?myAnimal.name[0]:myAnimal.name[1]}</span></div><MoreHorizontal size={17}/></div>
       </div>
     </aside>
@@ -715,8 +712,8 @@ function ReportsPage(p:any) {
   const {month,setMonth,income,expenses,balance,savingsRate,categoryData,monthlyData,onCSV,onPDF,transactions,theme}=p
   const prev=monthlyData.length>1?monthlyData[monthlyData.length-2]:null
   return <div className="page-stack"><PageHeading eyebrow={tr("A CLEARER MONTH-END")} title={tr("Monthly report")} description={tr("A concise record of your financial activity, built from the transactions you've entered.")} action={<MonthControl month={month} setMonth={setMonth}/>}/>
-    <section className="report-cover page-enter"><div className="report-cover-top"><div className="brand compact"><div className="brand-mark"><span/></div><span>monetra</span></div><span>{tr("MONTHLY FINANCIAL STATEMENT")}</span></div><h2>{monthLabel(month)}</h2><p>{tr("Your money, accounted for.")}</p><div className="report-cover-bottom"><span>{transactions.length} recorded transactions</span><span>Generated {new Date().toLocaleDateString('en-US')}</span></div></section>
-    <div className="report-metrics"><Metric label={t('m.income')} value={money(income)} sub="Recorded inflows" icon={ArrowDownRight} tone="green"/><Metric label={t('m.expense')} value={money(expenses)} sub="Recorded outflows" icon={ArrowUpRight} tone="amber"/><Metric label={tr("Net cash flow")} value={money(balance)} sub="Income − expenses" icon={Wallet} tone="mint"/><Metric label={t('m.rate')} value={`${savingsRate.toFixed(1)}%`} sub="Net cash flow / income" icon={PiggyBank} tone="blue"/></div>
+    <section className="report-cover page-enter"><div className="report-cover-top"><div className="brand compact"><div className="brand-mark"><span/></div><span>monetra</span></div><span>{tr("MONTHLY FINANCIAL STATEMENT")}</span></div><h2>{monthLabel(month)}</h2><p>{tr("Your money, accounted for.")}</p><div className="report-cover-bottom"><span>{transactions.length} {Lx('transaksi tercatat','recorded transactions')}</span><span>{Lx('Dibuat','Generated')} {new Date().toLocaleDateString(getLang()==='id'?'id-ID':'en-US')}</span></div></section>
+    <div className="report-metrics"><Metric label={t('m.income')} value={money(income)} sub={Lx('Pemasukan tercatat','Recorded inflows')} icon={ArrowDownRight} tone="green"/><Metric label={t('m.expense')} value={money(expenses)} sub={Lx('Pengeluaran tercatat','Recorded outflows')} icon={ArrowUpRight} tone="amber"/><Metric label={tr("Net cash flow")} value={money(balance)} sub={Lx('Pemasukan − pengeluaran','Income − expenses')} icon={Wallet} tone="mint"/><Metric label={t('m.rate')} value={`${savingsRate.toFixed(1)}%`} sub={Lx('Arus kas / pemasukan','Net cash flow / income')} icon={PiggyBank} tone="blue"/></div>
     <div className="report-grid"><section className="panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("SPENDING DISTRIBUTION")}</span><h2>{tr("Expense by category")}</h2></div></div>{categoryData.length?categoryData.map((c:any)=><div className="report-category" key={c.name}><div><span>{catLabel(c.name)}</span><strong>{money(c.value)}</strong></div><div className="progress-track"><span style={{width:`${c.value/expenses*100}%`,background:c.color}}/></div></div>):<EmptyChart text="No expense distribution available yet."/>}</section><section className="panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("MONTH-OVER-MONTH")}</span><h2>{tr("Comparison")}</h2></div></div>{prev&&prev.expenses>0?<><div className="comparison-line"><span>{tr("Expense change vs previous month")}</span><strong className={expenses<=prev.expenses?'positive':'negative'}>{((expenses-prev.expenses)/prev.expenses*100)>=0?'+':''}{((expenses-prev.expenses)/prev.expenses*100).toFixed(1)}%</strong></div><div className="comparison-line"><span>{tr("Previous month expenses")}</span><strong>{money(prev.expenses)}</strong></div><div className="comparison-line"><span>{tr("Current month expenses")}</span><strong>{money(expenses)}</strong></div></>:<div className="empty-chart"><p>{tr("Previous-month expense comparison needs recorded transactions in both periods.")}</p></div>}</section></div>
     <div className="report-export page-enter"><div><span className="panel-kicker">{tr("TAKE YOUR DATA WITH YOU")}</span><h2>{tr("Export your monthly report")}</h2><p>{tr("Download a copy for your own records. Your data stays on this device.")}</p></div><div className="export-actions"><button className="secondary-button" onClick={onCSV}><Download size={15}/> {tr("Export CSV")}</button>{(['light','dark'] as const).map(v=><button key={v} className={theme===v?'primary-button':'secondary-button'} onClick={()=>onPDF(v)}><FileText size={15}/> {v==='light'?Lx('PDF Siang','Day PDF'):Lx('PDF Malam','Night PDF')}{theme===v&&<span className="button-arrow"><ArrowUpRight size={14}/></span>}</button>)}</div></div>
   </div>
