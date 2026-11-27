@@ -139,33 +139,3 @@ export function envelope(all: Tx[], month: string, plan: Plan) {
     { key: 'save', label: L('Tabungan', 'Savings'), pct: savePct, planned: income * savePct / 100, actual: Math.max(0, income - needs - wants) }
   ] }
 }
-
-/* ============================ MONETRA WRAPPED ============================ */
-export function wrapped(all: Tx[], year: number, today: string) {
-  const ys = String(year); const yt = all.filter(t => t.date.startsWith(ys))
-  const exp = yt.filter(t => t.type === 'expense')
-  if (!yt.length) return null
-  const income = sum(yt.filter(t => t.type === 'income').map(t => t.amount)), expense = sum(exp.map(t => t.amount))
-  const byMonth = Array.from({ length: 12 }, (_, i) => sum(exp.filter(t => Number(t.date.slice(5, 7)) === i + 1).map(t => t.amount)))
-  const act = byMonth.map((v, i) => ({ i, v })).filter(x => x.v > 0)
-  const cat = new Map<string, number>(); exp.forEach(t => cat.set(t.category, (cat.get(t.category) || 0) + t.amount))
-  const top = [...cat.entries()].sort((a, b) => b[1] - a[1])[0]
-  const perDay = new Map<string, number>(); exp.forEach(t => perDay.set(t.date, (perDay.get(t.date) || 0) + t.amount))
-  const day = [...perDay.entries()].sort((a, b) => b[1] - a[1])[0]
-  const biggest = [...exp].sort((a, b) => b.amount - a.amount)[0]
-  const spendDays = new Set(exp.filter(t => !t.recurringId).map(t => t.date))
-  const start = yt.map(t => t.date).sort()[0], cap = `${ys}-12-31`, end = today < cap ? today : cap
-  let noSpend = 0, streak = 0, best = 0
-  for (let d = start; d <= end; d = shift(d, 1)) { if (!spendDays.has(d)) { noSpend++; streak++; best = Math.max(best, streak) } else streak = 0 }
-  const rate = income > 0 ? Math.round(((income - expense) / income) * 100) : 0
-  const share = (cs: string[]) => expense > 0 ? sum(cs.map(c => cat.get(c) || 0)) / expense : 0
-  const topShare = top && expense > 0 ? top[1] / expense : 0
-  const persona = rate >= 30 ? { icon: '🛡️', title: L('Si Penabung Tangguh', 'The Steady Saver'), desc: L('Kamu menyisihkan lebih dari 30% pemasukan. Dompetmu sehat!', 'You kept over 30% of your income. Healthy wallet!') }
-    : share(WANTS) >= 0.4 ? { icon: '🎉', title: L('Si Penikmat Hidup', 'The Life Enjoyer'), desc: L('Keinginan mengambil porsi besar. Seru, asal tetap terkontrol.', 'Wants take a big share. Fun, as long as it stays in check.') }
-    : top && top[0] === 'Food & Beverages' && topShare >= 0.35 ? { icon: '🍜', title: L('Pemburu Kuliner', 'The Food Hunter'), desc: L('Makanan jadi pos terbesarmu. Selera tinggi, catatan rapi.', 'Food is your biggest line. Great taste, tidy records.') }
-    : top && top[0] === 'Transportation' && topShare >= 0.3 ? { icon: '🛵', title: L('Si Mobile', 'The Commuter'), desc: L('Banyak uang mengalir ke perjalanan. Selalu bergerak!', 'A lot of money goes to getting around. Always moving!') }
-    : { icon: '⚖️', title: L('Si Seimbang', 'The Balanced One'), desc: L('Pengeluaranmu merata di banyak pos. Pola yang stabil.', 'Your spending is spread evenly. A stable pattern.') }
-  return { byMonth, count: yt.length, income, expense, rate, top: top ? { name: top[0], value: top[1], share: Math.round(topShare * 100) } : null,
-    hi: [...act].sort((a, b) => b.v - a.v)[0], lo: [...act].sort((a, b) => a.v - b.v)[0], day: day ? { date: day[0], amount: day[1] } : null,
-    biggest: biggest ? { name: biggest.name, amount: biggest.amount, date: biggest.date } : null, noSpend, best, persona }
-}
