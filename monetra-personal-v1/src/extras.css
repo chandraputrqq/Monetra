@@ -1,4 +1,4 @@
-/* Gaya untuk Extras.tsx (Asisten Pintar, Catat Suara, Wrapped). Taruh di src/extras.css */
+/* Gaya tambahan: dashboard sederhana, chat Natasya (suara dan fitur pintar). */
 
 .xt-page{max-width:880px}
 .xt-page .panel h2{display:flex;align-items:center;gap:8px;margin:0 0 12px}
@@ -32,9 +32,6 @@
 .xt-env>div:first-child{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
 .xt-env b{font-size:13px;font-weight:600;color:var(--text)}
 .xt-env span{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-
-/* Pilih tahun (Wrapped) */
-.xt-years{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 14px}
 
 /* Tombol suara + popover */
 .xt-voice{position:relative;display:inline-flex}
