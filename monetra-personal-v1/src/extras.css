@@ -86,21 +86,46 @@ html[data-theme="light"] .simple-stats .up{color:#059669}html[data-theme="light"
 .dash-more .dashboard-grid>.budget-panel{order:4;grid-column:1/-1}
 .dash-more .dashboard-grid:not(:has(.insight-panel))>.spending-panel{grid-column:1/-1}
 
-/* Sidebar mode ikon di semua layar lebar; nama menu muncul saat ikon diarahkan atau diklik */
+/* Kartu angka: kolom menyesuaikan jumlah kartu, tidak ada kolom kosong */
+.page-content .report-metrics,.page-content .metric-grid{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+
+/* ---- Sidebar (layar lebar) ----
+   Default: lebar dengan ikon + nama (mudah dipahami). Tombol "Ciutkan menu" mengubahnya jadi ikon saja (.is-rail). */
+.rail-toggle{display:none}
 @media(min-width:651px){
-  .app-shell .sidebar{width:72px;padding:20px 10px 12px;overflow:visible}
-  .app-shell .main-area{margin-left:72px}
-  .app-shell .sidebar .brand>span:not(.brand-mark),.app-shell .sidebar .brand small,.app-shell .sidebar .nav-group-label,.app-shell .sidebar .nav-item span,.app-shell .sidebar-bottom .profile>div:nth-child(2),.app-shell .sidebar-bottom .profile>svg{display:none}
-  .app-shell .sidebar .brand{justify-content:center;padding:0}
-  .app-shell .sidebar nav{overflow:visible;gap:8px;margin-top:18px;padding-right:0}
-  .app-shell .sidebar .nav-group+.nav-group{border-top:1px solid var(--line);padding-top:8px}
-  .app-shell .sidebar .nav-item{justify-content:center;padding:0;width:100%;height:42px}
-  .app-shell .sidebar .nav-item.active i{left:-10px}
-  .app-shell .sidebar .nav-item[data-tip]::after{display:block}
-  .app-shell .sidebar .nav-item:hover::after,.app-shell .sidebar .nav-item:focus-visible::after,.app-shell .sidebar .nav-item.tip-on::after{opacity:1;transform:translate(0,-50%)}
-  .app-shell .sidebar-bottom .profile{justify-content:center;padding:12px 0 3px}
+  .rail-toggle{display:flex;margin-bottom:6px}
+  .app-shell:not(.is-rail) .sidebar{width:224px;padding:18px 12px 12px;overflow:hidden}
+  .app-shell:not(.is-rail) .main-area{margin-left:224px}
+  .app-shell:not(.is-rail) .sidebar .brand{justify-content:flex-start;padding:0 8px}
+  .app-shell:not(.is-rail) .sidebar .brand>span:not(.brand-mark){display:inline}
+  .app-shell:not(.is-rail) .sidebar .nav-group-label{display:none}
+  .app-shell:not(.is-rail) .sidebar nav{overflow-x:hidden;overflow-y:auto;gap:4px;margin-top:16px}
+  .app-shell:not(.is-rail) .sidebar .nav-group{gap:2px}
+  .app-shell:not(.is-rail) .sidebar .nav-group+.nav-group{border-top:1px solid var(--line);padding-top:6px}
+  .app-shell:not(.is-rail) .sidebar .nav-item{justify-content:flex-start;padding:0 12px;width:100%;height:38px}
+  .app-shell:not(.is-rail) .sidebar .nav-item span{display:inline}
+  .app-shell:not(.is-rail) .sidebar-bottom .profile{justify-content:flex-start;padding:10px 8px 2px}
+
+  .app-shell.is-rail .sidebar{width:72px;padding:20px 10px 12px;overflow:visible}
+  .app-shell.is-rail .main-area{margin-left:72px}
+  .app-shell.is-rail .sidebar .brand>span:not(.brand-mark),.app-shell.is-rail .sidebar .brand small,.app-shell.is-rail .sidebar .nav-group-label,.app-shell.is-rail .sidebar .nav-item span,.app-shell.is-rail .sidebar-bottom .profile>div:nth-child(2),.app-shell.is-rail .sidebar-bottom .profile>svg{display:none}
+  .app-shell.is-rail .sidebar .brand{justify-content:center;padding:0}
+  .app-shell.is-rail .sidebar nav{overflow:visible;gap:8px;margin-top:18px;padding-right:0}
+  .app-shell.is-rail .sidebar .nav-group+.nav-group{border-top:1px solid var(--line);padding-top:8px}
+  .app-shell.is-rail .sidebar .nav-item{justify-content:center;padding:0;width:100%;height:42px}
+  .app-shell.is-rail .sidebar .nav-item.active i{left:-10px}
+  .app-shell.is-rail .sidebar .nav-item[data-tip]::after{display:block}
+  .app-shell.is-rail .sidebar .nav-item:hover::after,.app-shell.is-rail .sidebar .nav-item:focus-visible::after,.app-shell.is-rail .sidebar .nav-item.tip-on::after{opacity:1;transform:translate(0,-50%)}
+  .app-shell.is-rail .sidebar-bottom .profile{justify-content:center;padding:12px 0 3px}
 }
-@media(min-width:651px) and (max-height:780px){
-  .app-shell .sidebar .nav-item{height:36px}
-  .app-shell .sidebar nav{gap:6px;margin-top:12px}
+/* Layar pendek (termasuk laptop dengan skala tampilan 125 sampai 150 persen): rapatkan supaya semua menu muat tanpa scroll */
+@media(min-width:651px) and (max-height:700px){
+  .app-shell:not(.is-rail) .sidebar .nav-item,.app-shell.is-rail .sidebar .nav-item{height:31px}
+  .app-shell:not(.is-rail) .sidebar{padding-top:12px;padding-bottom:8px}
+  .app-shell:not(.is-rail) .sidebar nav,.app-shell.is-rail .sidebar nav{gap:2px;margin-top:8px}
+  .app-shell:not(.is-rail) .sidebar .nav-group,.app-shell.is-rail .sidebar .nav-group{gap:0}
+  .app-shell:not(.is-rail) .sidebar .nav-group+.nav-group,.app-shell.is-rail .sidebar .nav-group+.nav-group{padding-top:3px}
+  .rail-toggle{margin-bottom:2px}
+  .app-shell:not(.is-rail) .sidebar-bottom .profile{padding-top:6px}
+  .app-shell.is-rail .sidebar-bottom .profile{padding-top:6px}
 }
