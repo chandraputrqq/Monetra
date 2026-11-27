@@ -10,6 +10,19 @@ import type { Plan, Rec } from './insights'
 
 type Msg = { id: number; from: 'bot' | 'me'; text?: string; draft?: Draft; status?: 'pending' | 'saved' | 'cancelled'; followUps?: string[]; action?: BotAction; actionStatus?: 'pending' | 'done' | 'cancelled' }
 
+// Cadangan teks: kalau i18n.ts di perangkat belum terbarui, kunci mentah (mis. "n.q15") tidak pernah tampil.
+const FB: Record<string, [string, string]> = {
+  'n.q15': ['Cari pengeluaran janggal.', 'Find unusual spending.'], 'n.q16': ['Langganan saya.', 'My subscriptions.'],
+  'n.q17': ['Bagi gaji ke amplop.', 'Split my salary into envelopes.'], 'n.q18': ['Bulatkan jadi tabungan.', 'Round up into savings.'],
+  'n.mic': ['Catat lewat suara', 'Log by voice'], 'n.micStop': ['Berhenti merekam', 'Stop recording'],
+  'n.listening': ['Mendengarkan… sebutkan transaksinya', 'Listening… say your transaction'],
+  'n.noMic': ['Browser ini belum mendukung suara. Ketik saja kalimatnya.', 'This browser has no speech support. Type the sentence instead.'],
+  'n.micErr': ['Mikrofon tidak bisa dipakai. Izinkan akses mikrofon atau ketik kalimatnya.', 'Microphone unavailable. Allow access or type the sentence.'],
+  'n.voiceFail': ['Nominalnya belum terdengar. Coba: “kopi dua puluh lima ribu”.', 'Could not catch an amount. Try: “coffee 25k”.'],
+  'n.confirm': ['Ya, lakukan', 'Yes, do it'], 'n.done': ['Sudah dilakukan', 'Done'], 'n.moved': ['Dipindahkan ke tabungan', 'Moved to savings'],
+  'n.planSet': ['Pembagian amplop diperbarui', 'Envelope split updated'], 'n.markSet': ['Langganan ditandai', 'Subscription marked'],
+}
+const tn = (k: string): string => { const v = t(k); return v === k && FB[k] ? FB[k][getLang() === 'id' ? 0 : 1] : v }
 const QUICK: { icon: string; key: string }[] = [
   { icon: '👋', key: 'n.q9' }, { icon: '✨', key: 'n.q10' },
   { icon: '💡', key: 'n.q1' }, { icon: '📊', key: 'n.q2' }, { icon: '💰', key: 'n.q3' }, { icon: '🎯', key: 'n.q4' },
@@ -152,15 +165,15 @@ export function NatasyaChat(props: ChatProps) {
     if (fromVoice && !local.draft) {
       const v = parseVoice(q)
       if (v) local = { draft: { name: v.name, amount: v.amount, type: v.type, category: v.category, date: v.date } }
-      else if (!local.action && !local.followUps?.length) { propsRef.current.onToast?.(t('n.voiceFail')) }
+      else if (!local.action && !local.followUps?.length) { propsRef.current.onToast?.(tn('n.voiceFail')) }
     }
     // Pencatatan transaksi tetap memakai parser lokal dan selalu meminta konfirmasi.
     if (local.draft) {
-      botReply(() => ({ ...local, text: t('n.draft') }))
+      botReply(() => ({ ...local, text: tn('n.draft') }))
       return
     }
 
-    botReply(() => ({ ...local, text: local.text || t('n.aiFallback') }))
+    botReply(() => ({ ...local, text: local.text || tn('n.aiFallback') }))
   }
   const submit = (e: FormEvent) => { e.preventDefault(); send(input) }
   const patchMsg = (id: number, p: Partial<Msg>) => setMsgs(m => m.map(x => (x.id === id ? { ...x, ...p } : x)))
@@ -168,7 +181,7 @@ export function NatasyaChat(props: ChatProps) {
   const saveDraft = (msg: Msg) => {
     if (!msg.draft || msg.status !== 'pending') return
     const d = msg.draft
-    const tx: Tx = { id: Math.random().toString(36).slice(2, 10), name: d.name.trim() || t('n.defName'), amount: d.amount, type: d.type, category: d.category, date: d.date, notes: 'Natasya' }
+    const tx: Tx = { id: Math.random().toString(36).slice(2, 10), name: d.name.trim() || tn('n.defName'), amount: d.amount, type: d.type, category: d.category, date: d.date, notes: 'Natasya' }
     onSave(tx)
     patchMsg(msg.id, { status: 'saved' })
     // Proactive heads-up using the data including the new transaction.
@@ -184,7 +197,7 @@ export function NatasyaChat(props: ChatProps) {
   const listen = () => {
     if (live) { try { recRef.current?.stop() } catch { /* abaikan */ } return }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) { propsRef.current.onToast?.(t('n.noMic')); return }
+    if (!SR) { propsRef.current.onToast?.(tn('n.noMic')); return }
     const r = new SR(); r.lang = getLang() === 'id' ? 'id-ID' : 'en-US'; r.interimResults = true; r.continuous = false
     r.onresult = (e: any) => {
       const txt = Array.from(e.results).map((x: any) => x[0].transcript).join(' ')
@@ -192,7 +205,7 @@ export function NatasyaChat(props: ChatProps) {
       if (e.results[e.results.length - 1].isFinal) send(txt, true)
     }
     r.onend = () => setLive(false)
-    r.onerror = () => { setLive(false); propsRef.current.onToast?.(t('n.micErr')) }
+    r.onerror = () => { setLive(false); propsRef.current.onToast?.(tn('n.micErr')) }
     recRef.current = r; setLive(true)
     try { r.start() } catch { setLive(false) }
   }
@@ -204,14 +217,14 @@ export function NatasyaChat(props: ChatProps) {
     if (a.kind === 'roundup') {
       p.onDeposit?.(a.goalId, a.amount)
       p.onPatch?.('roundDone', { ...(p.roundDone || {}), [p.month]: ((p.roundDone || {})[p.month] || 0) + a.amount })
-      p.onToast?.(t('n.moved'))
+      p.onToast?.(tn('n.moved'))
     } else if (a.kind === 'plan') {
       p.onPatch?.('plan', { needs: a.needs, wants: a.wants })
-      p.onToast?.(t('n.planSet'))
+      p.onToast?.(tn('n.planSet'))
     } else {
       const marks = p.subMarks || {}
       p.onPatch?.('subMarks', { ...marks, [a.name]: a.mark })
-      p.onToast?.(t('n.markSet'))
+      p.onToast?.(tn('n.markSet'))
     }
     setMsgs(m => m.map(x => (x.id === msg.id ? { ...x, actionStatus: 'done' } : x)))
   }
@@ -225,8 +238,8 @@ export function NatasyaChat(props: ChatProps) {
   }
 
   if (!open && !mounted) return <>
-    {teaser && <button className="nat-teaser" onClick={onOpen} aria-label={t('n.open')}><strong>Natasya</strong><span>{teaser}</span></button>}
-    <button className="natasya-fab" onClick={onOpen} aria-label={t('n.open')}><Sparkles size={22} />{teaser && <i className="nat-dot" />}</button>
+    {teaser && <button className="nat-teaser" onClick={onOpen} aria-label={tn('n.open')}><strong>Natasya</strong><span>{teaser}</span></button>}
+    <button className="natasya-fab" onClick={onOpen} aria-label={tn('n.open')}><Sparkles size={22} />{teaser && <i className="nat-dot" />}</button>
   </>
 
   const last = [...msgs].reverse().find(m => m.from === 'bot')
@@ -235,17 +248,17 @@ export function NatasyaChat(props: ChatProps) {
   const canClear = msgs.length > 1 || typing
 
   return <>
-    <button className={`natasya-backdrop ${open ? '' : 'closing'}`} aria-label={t('n.close')} onClick={onClose} />
+    <button className={`natasya-backdrop ${open ? '' : 'closing'}`} aria-label={tn('n.close')} onClick={onClose} />
     <aside className={`natasya-drawer ${open ? '' : 'closing'}`} aria-label="Natasya">
     <div className="nat-head">
       <div className="nat-avatar">N</div>
-      <div><strong>{t('n.title')}</strong><span>{t('n.sub')}</span></div>
-      <button className="icon-button nat-clear" onClick={() => setConfirmClear(true)} disabled={!canClear} aria-label={t('n.clear')} title={t('n.clear')}><Trash2 size={17} /></button>
-      <button className="icon-button" onClick={onClose} aria-label={t('n.close')}><X size={18} /></button>
+      <div><strong>{tn('n.title')}</strong><span>{tn('n.sub')}</span></div>
+      <button className="icon-button nat-clear" onClick={() => setConfirmClear(true)} disabled={!canClear} aria-label={tn('n.clear')} title={tn('n.clear')}><Trash2 size={17} /></button>
+      <button className="icon-button" onClick={onClose} aria-label={tn('n.close')}><X size={18} /></button>
     </div>
-    {confirmClear && <div className="nat-confirm" role="alertdialog" aria-label={t('n.clearTitle')}>
-      <div><strong>{t('n.clearTitle')}</strong><p>{t('n.clearBody')}</p></div>
-      <div className="nat-actions"><button className="secondary-button" onClick={() => setConfirmClear(false)}>{t('n.clearNo')}</button><button className="danger-button" onClick={clearChat}>{t('n.clearYes')}</button></div>
+    {confirmClear && <div className="nat-confirm" role="alertdialog" aria-label={tn('n.clearTitle')}>
+      <div><strong>{tn('n.clearTitle')}</strong><p>{tn('n.clearBody')}</p></div>
+      <div className="nat-actions"><button className="secondary-button" onClick={() => setConfirmClear(false)}>{tn('n.clearNo')}</button><button className="danger-button" onClick={clearChat}>{tn('n.clearYes')}</button></div>
     </div>}
     <div className="nat-body" role="log" aria-live="polite">
       {msgs.map(m => <div key={m.id} className={`nat-msg ${m.from}`}>
@@ -253,42 +266,42 @@ export function NatasyaChat(props: ChatProps) {
         {m.draft && <>
           <div className="nat-draft">
             {m.status === 'pending' ? <>
-              <label>{t('n.name')}<input value={m.draft.name} onChange={e => patchDraft(m.id, { name: e.target.value })} /></label>
-              <label>{t('n.category')}<select value={m.draft.category} onChange={e => patchDraft(m.id, { category: e.target.value })}>{(m.draft.type === 'income' ? incomeCats : expenseCats).map(c => <option key={c}>{c}</option>)}</select></label>
-            </> : <div className="row"><span>{t('n.name')}</span><span>{m.draft.name}</span></div>}
-            <div className="row"><span>{t('n.amount')}</span><strong>{money(m.draft.amount)}</strong></div>
-            {m.status !== 'pending' && <div className="row"><span>{t('n.category')}</span><span>{m.draft.category}</span></div>}
-            <div className="row"><span>{t('n.date')}</span><span>{m.draft.date}</span></div>
-            {m.status === 'pending' && <div className="nat-actions"><button className="primary-button" onClick={() => saveDraft(m)}>{t('n.save')}</button><button className="secondary-button" onClick={() => patchMsg(m.id, { status: 'cancelled' })}>{t('n.cancel')}</button></div>}
-            {m.status === 'saved' && <span className="nat-state">{t('n.saved')}</span>}
-            {m.status === 'cancelled' && <span className="nat-state off">{t('n.cancelled')}</span>}
+              <label>{tn('n.name')}<input value={m.draft.name} onChange={e => patchDraft(m.id, { name: e.target.value })} /></label>
+              <label>{tn('n.category')}<select value={m.draft.category} onChange={e => patchDraft(m.id, { category: e.target.value })}>{(m.draft.type === 'income' ? incomeCats : expenseCats).map(c => <option key={c}>{c}</option>)}</select></label>
+            </> : <div className="row"><span>{tn('n.name')}</span><span>{m.draft.name}</span></div>}
+            <div className="row"><span>{tn('n.amount')}</span><strong>{money(m.draft.amount)}</strong></div>
+            {m.status !== 'pending' && <div className="row"><span>{tn('n.category')}</span><span>{m.draft.category}</span></div>}
+            <div className="row"><span>{tn('n.date')}</span><span>{m.draft.date}</span></div>
+            {m.status === 'pending' && <div className="nat-actions"><button className="primary-button" onClick={() => saveDraft(m)}>{tn('n.save')}</button><button className="secondary-button" onClick={() => patchMsg(m.id, { status: 'cancelled' })}>{tn('n.cancel')}</button></div>}
+            {m.status === 'saved' && <span className="nat-state">{tn('n.saved')}</span>}
+            {m.status === 'cancelled' && <span className="nat-state off">{tn('n.cancelled')}</span>}
           </div>
-          {m.status === 'pending' && <small className="nat-hint">{t('n.safe')}</small>}
+          {m.status === 'pending' && <small className="nat-hint">{tn('n.safe')}</small>}
         </>}
         {m.action && <div className="nat-actions">
-          {m.actionStatus === 'pending' && <><button className="primary-button" onClick={() => runAction(m)}>{t('n.confirm')}</button><button className="secondary-button" onClick={() => setMsgs(ms => ms.map(x => (x.id === m.id ? { ...x, actionStatus: 'cancelled' } : x)))}>{t('n.cancel')}</button></>}
-          {m.actionStatus === 'done' && <span className="nat-state">{t('n.done')}</span>}
-          {m.actionStatus === 'cancelled' && <span className="nat-state off">{t('n.cancelled')}</span>}
+          {m.actionStatus === 'pending' && <><button className="primary-button" onClick={() => runAction(m)}>{tn('n.confirm')}</button><button className="secondary-button" onClick={() => setMsgs(ms => ms.map(x => (x.id === m.id ? { ...x, actionStatus: 'cancelled' } : x)))}>{tn('n.cancel')}</button></>}
+          {m.actionStatus === 'done' && <span className="nat-state">{tn('n.done')}</span>}
+          {m.actionStatus === 'cancelled' && <span className="nat-state off">{tn('n.cancelled')}</span>}
         </div>}
       </div>)}
-      {onlyGreeting && !typing && <div className="nat-quick" aria-label={t('n.quickLabel')}>
-        {QUICK.map(q => <button key={q.key} onClick={() => send(t(q.key))}><span aria-hidden="true">{q.icon}</span>{t(q.key)}</button>)}
+      {onlyGreeting && !typing && <div className="nat-quick" aria-label={tn('n.quickLabel')}>
+        {QUICK.map(q => <button key={q.key} onClick={() => send(tn(q.key))}><span aria-hidden="true">{q.icon}</span>{tn(q.key)}</button>)}
       </div>}
       {typing && <div className="nat-msg bot nat-typing" role="status" aria-live="polite">
         <span className="nat-dots" aria-hidden="true"><i /><i /><i /></span>
-        <span className="nat-typing-text">{t('n.typing')}</span>
+        <span className="nat-typing-text">{tn('n.typing')}</span>
       </div>}
       <div ref={endRef} />
     </div>
-    {!onlyGreeting && <div className="nat-chips" aria-label={t('n.quickLabel')}>
-      {strip ? strip.map(f => <button key={f} onClick={() => send(f)}>{f}</button>) : QUICK.map(q => <button key={q.key} onClick={() => send(t(q.key))}><span aria-hidden="true">{q.icon}</span> {t(q.key)}</button>)}
+    {!onlyGreeting && <div className="nat-chips" aria-label={tn('n.quickLabel')}>
+      {strip ? strip.map(f => <button key={f} onClick={() => send(f)}>{f}</button>) : QUICK.map(q => <button key={q.key} onClick={() => send(tn(q.key))}><span aria-hidden="true">{q.icon}</span> {tn(q.key)}</button>)}
     </div>}
     <form className="nat-form" onSubmit={submit}>
-      <input value={input} onChange={e => setInput(e.target.value)} placeholder={live ? t('n.listening') : t('n.placeholder')} aria-label={t('n.placeholder')} />
-      <button type="button" className={`nat-mic ${live ? 'xt-live' : ''}`} onClick={listen} aria-pressed={live} aria-label={live ? t('n.micStop') : t('n.mic')} title={live ? t('n.micStop') : t('n.mic')}><Mic size={18} /></button>
-      <button type="submit" aria-label={t('n.send')} disabled={!input.trim()}><ArrowUp size={18} /></button>
+      <input value={input} onChange={e => setInput(e.target.value)} placeholder={live ? tn('n.listening') : tn('n.placeholder')} aria-label={tn('n.placeholder')} />
+      <button type="button" className={`nat-mic ${live ? 'xt-live' : ''}`} onClick={listen} aria-pressed={live} aria-label={live ? tn('n.micStop') : tn('n.mic')} title={live ? tn('n.micStop') : tn('n.mic')}><Mic size={18} /></button>
+      <button type="submit" aria-label={tn('n.send')} disabled={!input.trim()}><ArrowUp size={18} /></button>
     </form>
-    <p className="nat-note">{t('n.privacy')}</p>
+    <p className="nat-note">{tn('n.privacy')}</p>
   </aside>
   </>
 }
@@ -308,7 +321,7 @@ export function ReminderNotice({ percent, left, onClose, onChat }: { percent: nu
       <p>{over ? t('rem.over', { pct: Math.round(percent) }) : t('rem.warn', { pct: Math.round(percent), left })}</p>
       <button className="text-link" onClick={onChat}>{t('rem.btn')}</button>
     </div>
-    <button className="icon-button" onClick={onClose} aria-label={t('n.close')}><X size={16} /></button>
+    <button className="icon-button" onClick={onClose} aria-label={tn('n.close')}><X size={16} /></button>
   </div>
 }
 
@@ -327,6 +340,6 @@ export function QuoteNotice({ text, onClose, onChat }: { text: string; onClose: 
       <p>{text}</p>
       <button className="text-link" onClick={onChat}>{t('rem.hi')}</button>
     </div>
-    <button className="icon-button" onClick={onClose} aria-label={t('n.close')}><X size={16} /></button>
+    <button className="icon-button" onClick={onClose} aria-label={tn('n.close')}><X size={16} /></button>
   </div>
 }
