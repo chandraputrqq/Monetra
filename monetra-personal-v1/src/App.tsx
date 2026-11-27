@@ -10,8 +10,6 @@ import type { ProfilePrefs } from './Profile'
 import { t, tr, getLang, setLang } from './i18n'
 import type { Lang } from './i18n'
 import { buildCsv, csvDelimiter } from './csv'
-import { WrappedPage } from './Extras'
-import { Gift } from 'lucide-react'
 import type { ReactNode, FormEvent, ChangeEvent } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -39,7 +37,7 @@ type GoalContribution = { id:string; type:'deposit'|'withdrawal'; amount:number;
 type Goal = { id:string; name:string; target:number; saved:number; date:string; category?:string; description?:string; priority?:'Low'|'Medium'|'High'; paused?:boolean; completed?:boolean; contributions?:GoalContribution[] }
 type DebtPayment = { id: string; amount: number; date: string; notes?: string }
 type Debt = { id: string; person: string; direction: 'lent' | 'borrowed'; amount: number; date: string; due?: string; notes?: string; payments: DebtPayment[] }
-type Page = 'Dashboard' | 'Challenges' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Wrapped' | 'Profile' | 'Settings'
+type Page = 'Dashboard' | 'Challenges' | 'Transactions' | 'Monthly Budget' | 'Analytics' | 'Financial Calendar' | 'Savings Goals' | 'Debts' | 'Monthly Reports' | 'Profile' | 'Settings'
 
 const EXPENSE_CATEGORIES = ['Food & Beverages','Transportation','Shopping','Entertainment','Education','Bills & Utilities','Health','Housing','Subscriptions','Other']
 const INCOME_CATEGORIES = ['Salary','Business','Freelance','Investment Returns','Other Income']
@@ -47,13 +45,13 @@ const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
   { label:'Dashboard', icon:LayoutDashboard }, { label:'Transactions', icon:ArrowLeftRight },
   { label:'Monthly Budget', icon:Wallet }, { label:'Analytics', icon:ChartNoAxesCombined },
   { label:'Financial Calendar', icon:CalendarDays }, { label:'Savings Goals', icon:Target }, { label:'Challenges', icon:Trophy }, { label:'Debts', icon:Users },
-  { label:'Monthly Reports', icon:FileText }, { label:'Wrapped', icon:Gift }, { label:'Profile', icon:PawPrint }, { label:'Settings', icon:Settings }
+  { label:'Monthly Reports', icon:FileText }, { label:'Profile', icon:PawPrint }, { label:'Settings', icon:Settings }
 ]
 // Menu dikelompokkan; semua halaman lama tetap ada. Label grup memakai kunci i18n 'grp.*'.
 const NAV_GROUPS: { key: string; items: Page[] }[] = [
   { key:'grp.overview', items:['Dashboard'] },
   { key:'grp.finance', items:['Transactions','Monthly Budget','Savings Goals','Challenges','Debts'] },
-  { key:'grp.analysis', items:['Analytics','Financial Calendar','Monthly Reports','Wrapped'] },
+  { key:'grp.analysis', items:['Analytics','Financial Calendar','Monthly Reports'] },
   { key:'grp.account', items:['Profile','Settings'] }
 ]
 const PRIMARY_MOBILE: Page[] = ['Dashboard','Transactions','Monthly Budget','Savings Goals']
@@ -381,7 +379,6 @@ export default function App() {
       case 'Analytics': return <AnalyticsPage categoryData={categoryData} monthlyData={monthlyData} month={month} setMonth={setMonth} transactions={transactions} />
       case 'Financial Calendar': return <CalendarPage month={month} setMonth={setMonth} transactions={transactions} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
       case 'Savings Goals': return <GoalsPage goals={goals} onSave={saveGoal} onDelete={deleteGoal} />
-      case 'Wrapped': return <WrappedPage transactions={transactions} goals={goals} money={money} cat={catLabel} />
       case 'Challenges': return <ChallengesPage challenges={challenges} transactions={transactions} today={dateISO()} money={money} onSave={saveChallenge} onDelete={deleteChallenge} />
       case 'Debts': return <DebtsPage debts={debts} onSave={saveDebt} onDelete={deleteDebt} />
       case 'Monthly Reports': return <ReportsPage month={month} setMonth={setMonth} income={income} expenses={expenses} balance={balance} savingsRate={savingsRate} categoryData={categoryData} monthlyData={monthlyData} onCSV={exportReport} onPDF={exportPDF} theme={theme} transactions={monthTx} />
