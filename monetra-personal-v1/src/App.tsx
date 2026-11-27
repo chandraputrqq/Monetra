@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import './extras.css'
 import { NatasyaChat, ReminderNotice, QuoteNotice } from './Natasya'
 import { pickQuote } from './reminders'
 import { ChallengesPage } from './Challenges'
