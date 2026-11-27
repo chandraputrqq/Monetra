@@ -125,6 +125,9 @@ export default function App() {
   const cloud = useCloudSync(store,setStore)
   const [page,setPageState] = useState<Page>(()=>{try{const v=localStorage.getItem('monetra-page') as Page|null;return v&&NAV.some(n=>n.label===v)?v:'Dashboard'}catch{return 'Dashboard'}})
   const setPage = (p:Page)=>{setPageState(p);try{localStorage.setItem('monetra-page',p)}catch{/* ignore */}}
+  // Sidebar mode ikon: nama menu muncul sebentar saat ikon diklik
+  const [navTip,setNavTip]=useState<string|null>(null)
+  useEffect(()=>{if(!navTip)return;const id=window.setTimeout(()=>setNavTip(null),1800);return()=>window.clearTimeout(id)},[navTip])
   const [month,setMonth] = useState(currentMonth)
   const [modal,setModal] = useState(false)
   const [editing,setEditing] = useState<Transaction|null>(null)
@@ -391,7 +394,7 @@ export default function App() {
   return <div className={`app-shell ${hideNums?'privacy-on':''}`}>
     <aside className={`sidebar ${mobileNav?'sidebar-open':''}`}>
       <div className="brand"><div className="brand-mark"><span /></div><span>monetra</span><small>{tr("STUDENT FINANCE")}</small></div>
-      <nav aria-label={t('workspace')}>{NAV_GROUPS.map(g=><div className="nav-group" key={g.key}><div className="nav-group-label">{t(g.key)}</div>{g.items.map(label=>{const Icon=NAV.find(n=>n.label===label)!.icon;return <button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}} title={t('nav.'+label)} data-tip={t('nav.'+label)} aria-current={page===label?'page':undefined}><Icon size={18}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>})}</div>)}</nav>
+      <nav aria-label={t('workspace')}>{NAV_GROUPS.map(g=><div className="nav-group" key={g.key}><div className="nav-group-label">{t(g.key)}</div>{g.items.map(label=>{const Icon=NAV.find(n=>n.label===label)!.icon;return <button key={label} className={`nav-item ${page===label?'active':''} ${navTip===label?'tip-on':''}`} onClick={()=>{setPage(label);setMobileNav(false);setNavTip(label)}} title={t('nav.'+label)} data-tip={t('nav.'+label)} aria-current={page===label?'page':undefined}><Icon size={18}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>})}</div>)}</nav>
       <div className="sidebar-bottom">
         <div className="profile" role="button" tabIndex={0} onClick={()=>{setPage('Profile');setMobileNav(false)}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){setPage('Profile');setMobileNav(false)}}}><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={30}/><div><strong>{profilePrefs.name.trim()||tr("My workspace")}</strong><span>{myAnimal.emoji} {getLang()==='id'?myAnimal.name[0]:myAnimal.name[1]}</span></div><MoreHorizontal size={17}/></div>
       </div>
@@ -587,7 +590,7 @@ function RecapCard({recap,active,onNavigate}:{recap:Recap,active:{c:Challenge,r:
     {lead&&<div className="recap-chl"><Trophy size={15}/><span>{challengeTitle(lead.c,money)}: {Lx(`hari ke-${lead.r.dayNumber}, streak ${lead.r.streak} hari`,`day ${lead.r.dayNumber}, ${lead.r.streak}-day streak`)}</span><button className="text-link" onClick={()=>onNavigate('Challenges')}>{Lx('Lihat','View')} <ArrowUpRight size={14}/></button></div>}
   </section>
 }
-function EmptyChart({text}:{text:string}) { return <div className="empty-chart"><div className="empty-orbit"><ChartNoAxesCombined size={20}/></div><p>{text}</p></div> }
+function EmptyChart({text}:{text:string}) { return <div className="empty-chart"><div className="empty-orbit"><ChartNoAxesCombined size={20}/></div><p>{tr(text)}</p></div> }
 function TransactionRows({rows,onEdit,onDelete}:{rows:Transaction[],onEdit?:(t:Transaction)=>void,onDelete?:(id:string)=>void}) {
   if(!rows.length)return <div className="empty-state"><div className="empty-orbit"><ArrowLeftRight size={20}/></div><strong>{tr("No transactions yet")}</strong><p>{tr("Your activity will show up here once you add a record.")}</p></div>
   return <div className="transaction-list">{rows.map(t=><div className="transaction-row" key={t.id}><div className={`tx-symbol ${t.type}`}><span>{t.type==='income'?<ArrowDownRight size={16}/>:<ArrowUpRight size={16}/>}</span></div><div className="tx-main"><strong>{t.name}</strong><span>{catLabel(t.category)} <i>·</i> {new Date(`${t.date}T12:00:00`).toLocaleDateString(getLang()==='id'?'id-ID':'en-US',{day:'numeric',month:'short',year:'numeric'})}</span></div><strong className={`tx-amount ${t.type}`}>{t.type==='income'?'+':'−'}{money(t.amount)}</strong>{onEdit&&<button className="row-action" onClick={()=>onEdit(t)} aria-label={`Edit ${t.name}`}><Pencil size={14}/></button>}{onDelete&&<button className="row-action danger" onClick={()=>onDelete(t.id)} aria-label={`Delete ${t.name}`}><Trash2 size={14}/></button>}</div>)}</div>
