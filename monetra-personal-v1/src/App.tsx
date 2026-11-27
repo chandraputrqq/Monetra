@@ -13,6 +13,9 @@ import { buildCsv, csvDelimiter } from './csv'
 import { WrappedPage } from './Extras'
 import { Gift } from 'lucide-react'
 import type { ReactNode, FormEvent, ChangeEvent } from 'react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, ChartNoAxesCombined, CalendarDays,
   Target, FileText, Settings, Plus, Search, Bell, ChevronDown, ChevronLeft,
@@ -25,6 +28,8 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, Sector, BarChart, Bar, Legend
 } from 'recharts'
+
+gsap.registerPlugin(ScrollTrigger)
 
 type TxType = 'income' | 'expense'
 type Transaction = { id: string; name: string; amount: number; type: TxType; category: string; date: string; notes?: string; recurringId?: string }
@@ -45,9 +50,12 @@ const NAV: { label: Page; icon: typeof LayoutDashboard }[] = [
   { label:'Monthly Reports', icon:FileText }, { label:'Wrapped', icon:Gift }, { label:'Profile', icon:PawPrint }, { label:'Settings', icon:Settings }
 ]
 // Menu dikelompokkan; semua halaman lama tetap ada. Label grup memakai kunci i18n 'grp.*'.
-// Menu disederhanakan: 5 menu utama selalu terlihat, sisanya dilipat di "Lainnya". Semua halaman tetap ada.
-const MAIN_NAV: Page[] = ['Dashboard','Transactions','Monthly Budget','Savings Goals','Analytics']
-const MORE_NAV: Page[] = ['Debts','Financial Calendar','Challenges','Monthly Reports','Wrapped','Profile','Settings']
+const NAV_GROUPS: { key: string; items: Page[] }[] = [
+  { key:'grp.overview', items:['Dashboard'] },
+  { key:'grp.finance', items:['Transactions','Monthly Budget','Savings Goals','Challenges','Debts'] },
+  { key:'grp.analysis', items:['Analytics','Financial Calendar','Monthly Reports','Wrapped'] },
+  { key:'grp.account', items:['Profile','Settings'] }
+]
 const PRIMARY_MOBILE: Page[] = ['Dashboard','Transactions','Monthly Budget','Savings Goals']
 type ThemeMode = 'light' | 'dark' | 'auto'
 const resolveTheme = (m: ThemeMode): 'light' | 'dark' => m === 'auto' ? ((h => h >= 6 && h < 18)(new Date().getHours()) ? 'light' : 'dark') : m
@@ -128,7 +136,8 @@ export default function App() {
   const [selectedDate,setSelectedDate] = useState(dateISO())
   const [mobileNav,setMobileNav] = useState(false)
   const [moreOpen,setMoreOpen] = useState(false)
-  const booting = false
+  const [booting,setBooting] = useState(true)
+  useEffect(()=>{ const id=window.setTimeout(()=>setBooting(false),420); return ()=>window.clearTimeout(id) },[])
   const [confirmClear,setConfirmClear] = useState(false)
   const [recModal,setRecModal] = useState(false)
   const [editingRec,setEditingRec] = useState<Recurring|null>(null)
@@ -193,6 +202,13 @@ export default function App() {
       notify(tr("Browser storage is unavailable. Export a backup before leaving this page."))
     }
   },[store])
+  useGSAP(()=> {
+    if (booting || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    gsap.fromTo('.page-enter',{y:10,opacity:0},{y:0,opacity:1,duration:.28,ease:'power2.out',stagger:.04,clearProps:'opacity,transform'})
+    gsap.fromTo('.metric-card',{y:12,opacity:0},{y:0,opacity:1,duration:.3,ease:'power2.out',stagger:.045,delay:.04,clearProps:'opacity,transform'})
+    gsap.utils.toArray<HTMLElement>('.panel:not(.page-enter)').forEach((panel)=>gsap.fromTo(panel,{y:8,opacity:0},{y:0,opacity:1,duration:.26,ease:'power2.out',clearProps:'opacity,transform',scrollTrigger:{trigger:panel,start:'top 96%',toggleActions:'play none none none'}}))
+  },{scope:mainRef,dependencies:[page,booting]})
+
   const notify = (message: string) => { setToast(message); window.setTimeout(()=>setToast(''),2600) }
   // Auto-record: every active recurring rule writes its due transactions once, then remembers the last run date.
   useEffect(()=>{
@@ -377,19 +393,20 @@ export default function App() {
   return <div className={`app-shell ${hideNums?'privacy-on':''}`}>
     <aside className={`sidebar ${mobileNav?'sidebar-open':''}`}>
       <div className="brand"><div className="brand-mark"><span /></div><span>monetra</span><small>{tr("STUDENT FINANCE")}</small></div>
-      <nav aria-label={t('workspace')}>
-        <div className="nav-group">{MAIN_NAV.map(label=>{const Icon=NAV.find(n=>n.label===label)!.icon;return <button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}} aria-current={page===label?'page':undefined}><Icon size={18}/><span>{t('nav.'+label)}</span></button>})}</div>
-        <details className="nav-more" open={MORE_NAV.includes(page)}><summary>{t('nav.more')}</summary><div className="nav-group">{MORE_NAV.map(label=>{const Icon=NAV.find(n=>n.label===label)!.icon;return <button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}} aria-current={page===label?'page':undefined}><Icon size={18}/><span>{t('nav.'+label)}</span></button>})}</div></details>
-      </nav>
+      <nav aria-label={t('workspace')}>{NAV_GROUPS.map(g=><div className="nav-group" key={g.key}><div className="nav-group-label">{t(g.key)}</div>{g.items.map(label=>{const Icon=NAV.find(n=>n.label===label)!.icon;return <button key={label} className={`nav-item ${page===label?'active':''}`} onClick={()=>{setPage(label);setMobileNav(false)}} title={t('nav.'+label)} data-tip={t('nav.'+label)} aria-current={page===label?'page':undefined}><Icon size={18}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>})}</div>)}</nav>
+      <div className="sidebar-bottom">
+        <div className="profile" role="button" tabIndex={0} onClick={()=>{setPage('Profile');setMobileNav(false)}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){setPage('Profile');setMobileNav(false)}}}><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={30}/><div><strong>{profilePrefs.name.trim()||tr("My workspace")}</strong><span>{myAnimal.emoji} {getLang()==='id'?myAnimal.name[0]:myAnimal.name[1]}</span></div><MoreHorizontal size={17}/></div>
+      </div>
     </aside>
     {mobileNav&&<button className="mobile-scrim" onClick={()=>setMobileNav(false)} aria-label={tr("Close menu")}/>}
     <main className="main-area" ref={mainRef}>
       <header className="topbar">
         <button className="mobile-menu icon-button" onClick={()=>setMobileNav(!mobileNav)} aria-label={tr("Toggle navigation")}><Menu size={19}/></button>
         <div className="breadcrumb"><span>{t('crumb')}</span><span className="crumb-slash">/</span><strong>{t('nav.'+page)}</strong></div>
-        <div className="top-actions"><button className="icon-button theme-toggle" aria-label={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} onClick={toggleTheme}>{theme==='light'?<Moon size={17}/>:<Sun size={17}/>}</button><button className="icon-button privacy-toggle" aria-pressed={hideNums} aria-label={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} onClick={togglePrivacy}>{hideNums?<EyeOff size={17}/>:<Eye size={17}/>}</button><button className="primary-button small" onClick={openAdd}><Plus size={15}/> {t('add')}</button></div>
+        <div className="top-actions"><span className="today-label">{new Date().toLocaleDateString(lang==='id'?'id-ID':'en-US',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span><button className="icon-button theme-toggle" aria-label={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} title={theme==='light'?Lx('Pakai mode malam','Use night mode'):Lx('Pakai mode siang','Use day mode')} onClick={toggleTheme}>{theme==='light'?<Moon size={17}/>:<Sun size={17}/>}</button><button className="icon-button privacy-toggle" aria-pressed={hideNums} aria-label={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} title={hideNums?Lx('Tampilkan angka','Show numbers'):Lx('Sembunyikan angka','Hide numbers')} onClick={togglePrivacy}>{hideNums?<EyeOff size={17}/>:<Eye size={17}/>}</button><button className="icon-button notification" aria-label={tr("Notifications")} onClick={()=>{ if(curUtil>=80) setReminder(true); else setQuote(pickQuote()) }}><Bell size={17}/><i/></button><button className="profile-chip" onClick={()=>setPage('Profile')} aria-label="Profile"><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={26}/><ChevronDown size={14}/></button></div>
       </header>
       <div className="page-content">{booting?<PageSkeleton/>:renderPage()}</div>
+      <footer className="app-footer"><span>MONETRA <i>·</i> {tr("Know your money. Control your future.")}</span><span>{tr("Private on this browser")} <b>●</b> {tr("Saved on this device")}</span></footer>
     </main>
     {recModal&&<RecurringModal initial={editingRec} onClose={()=>{setRecModal(false);setEditingRec(null)}} onSave={saveRecurring}/>}
     {modal&&<TransactionModal initial={editing} onClose={()=>{setModal(false);setEditing(null)}} onSave={addOrUpdate}/>}
@@ -501,19 +518,51 @@ function PieWithPopup({data,total,txs,centerLabel,large,full}:{data:any[],total:
   </>
 }
 function Dashboard(p:any) {
-  const {month,setMonth,income,expenses,balance,allocated,utilization,transactions,budgets,onAdd,onNavigate,onEdit}=p
-  const recent = transactions.slice().sort((a:Transaction,b:Transaction)=>b.date.localeCompare(a.date)).slice(0,6)
-  return <div className="page-stack simple-dash">
-    <div className="overview-toolbar"><h1 className="simple-title">{t('d.title')}</h1><MonthControl month={month} setMonth={setMonth}/></div>
-    <div className="simple-balance"><span>{t('m.balance')}</span><strong>{money(balance)}</strong></div>
-    <div className="simple-two">
-      <div className="simple-stat"><span>{t('m.income')}</span><strong className="pos">{money(income)}</strong></div>
-      <div className="simple-stat"><span>{t('m.expense')}</span><strong className="neg">{money(expenses)}</strong></div>
-    </div>
-    <section className="panel"><div className="panel-heading"><h2>{t('p.pulse')}</h2><button className="text-link" onClick={()=>onNavigate('Monthly Budget')}>{t('p.manage')}</button></div>
-      {allocated?<><div className="budget-caption"><span>{money(expenses)} {Lx('dari','of')} {money(allocated)}</span><strong>{utilization.toFixed(0)}%</strong></div><div className="progress-track large"><span style={{width:`${Math.min(utilization,100)}%`}}/></div></>:<p className="muted-note">{tr("Set category limits to track your budget")}</p>}
+  const {month,setMonth,income,expenses,balance,savingsRate,totalSaved,utilization,allocated,categoryData,monthlyData,transactions,highestCategory,expenseChange,budgets,onAdd,onNavigate,onEdit,onChat,recap,chlActive}=p
+  return <div className="page-stack">
+    <PageHeading eyebrow={t('d.eyebrow')} title={t('d.title')} description={t('d.desc')} action={<button className="primary-button" onClick={onAdd}><Plus size={16}/> {t('add')} <span className="button-arrow"><ArrowUpRight size={14}/></span></button>}/>
+    <div className="overview-toolbar"><div className="live-status"><span className="live-dot"/>{Lx(`${transactions.length} catatan bulan ini`,`${transactions.length} records this month`)}</div><MonthControl month={month} setMonth={setMonth}/></div>
+    <section className="simple-hero page-enter">
+      <span className="panel-kicker">{Lx('SISA UANG BULAN INI','LEFT THIS MONTH')}</span>
+      <strong className={`simple-hero-value ${balance<0?'negative':''}`}>{money(balance)}</strong>
+      {allocated>0?<><div className="progress-track large"><span style={{width:`${Math.min(utilization,100)}%`}}/></div><div className="simple-hero-cap"><span>{money(expenses)} {Lx('terpakai dari','spent of')} {money(allocated)}</span><strong>{Math.round(utilization)}%</strong></div></>:<button className="text-link" onClick={()=>onNavigate('Monthly Budget')}>{Lx('Atur anggaran bulanan','Set a monthly budget')} <ArrowUpRight size={14}/></button>}
     </section>
-    <section className="panel"><div className="panel-heading"><h2>{tr("Recent transactions")}</h2><button className="text-link" onClick={()=>onNavigate('Transactions')}>{tr("All transactions")}</button></div><TransactionRows rows={recent} onEdit={onEdit}/></section>
+    <div className="simple-stats page-enter">
+      <div><small>{t('m.income')}</small><strong className="up">{money(income)}</strong></div>
+      <div><small>{t('m.expense')}</small><strong className="down">{money(expenses)}</strong></div>
+      <div><small>{t('m.saved')}</small><strong>{money(totalSaved)}</strong></div>
+    </div>
+    <button className="simple-natasya" onClick={onChat}><Sparkles size={16}/> {Lx('Tanya atau catat lewat Natasya','Ask or log with Natasya')}</button>
+    <section className="panel recent-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{tr("LATEST ACTIVITY")}</span><h2>{tr("Recent transactions")}</h2></div><button className="text-link" onClick={()=>onNavigate('Transactions')}>{tr("All transactions")} <ArrowUpRight size={14}/></button></div><TransactionRows rows={transactions.slice().sort((a:Transaction,b:Transaction)=>b.date.localeCompare(a.date)).slice(0,5)} onEdit={onEdit}/></section>
+    <details className="dash-more"><summary>{Lx('Lihat grafik dan rekap lengkap','Show charts and full recap')}</summary>
+    <div className="metric-grid">
+      <Metric label={t('m.income')} value={money(income)} raw={income} sub={t('m.income.sub')} icon={ArrowDownRight} tone="green"/>
+      <Metric label={t('m.expense')} value={money(expenses)} raw={expenses} sub={t('m.expense.sub')} icon={ArrowUpRight} tone="amber" trend={expenseChange===null?'':`${expenseChange>=0?'+':''}${expenseChange.toFixed(1)}% ${t('vsLast')}`}/>
+      <Metric label={t('m.balance')} value={money(balance)} raw={balance} sub={t('m.balance.sub')} icon={Wallet} tone="mint"/>
+      <Metric label={t('m.saved')} value={money(totalSaved)} raw={totalSaved} sub={t('m.saved.sub')} icon={PiggyBank} tone="blue"/><Metric label={t('m.rate')} value={`${savingsRate.toFixed(1)}%`} raw={savingsRate} format={(n:number)=>`${n.toFixed(1)}%`} sub={t('m.rate.sub')} icon={TrendingUp} tone="mint"/>
+    </div>
+    <div className="dashboard-grid">
+      <section className="panel cashflow-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{t('p.cash')}</span><h2>{t('p.incexp')}</h2></div><button className="text-link" onClick={()=>onNavigate('Analytics')}>{t('p.viewAn')} <ArrowUpRight size={14}/></button></div>
+        <div className="chart-legend"><span><i className="legend-income"/>{t('income')}</span><span><i className="legend-expense"/>{t('expenses')}</span></div>
+        <div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyData} barGap={7}><CartesianGrid stroke="#ffffff0c" vertical={false}/><XAxis dataKey="month" tick={{fill:'#777f77',fontSize:11}} axisLine={false} tickLine={false}/><YAxis tickFormatter={shortMoney} tick={{fill:'#777f77',fontSize:10}} axisLine={false} tickLine={false} width={54}/><Tooltip content={<ChartTip/>} cursor={{fill:'#ffffff08'}}/><Bar dataKey="income" name="Income" fill="#34d399" radius={[4,4,0,0]} maxBarSize={18}/><Bar dataKey="expenses" name="Expenses" fill="#d6a45a" radius={[4,4,0,0]} maxBarSize={18}/></BarChart></ResponsiveContainer></div>
+      </section>
+      <section className="panel spending-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{t('p.mix')}</span><h2>{t('p.where')}</h2></div><button className="icon-button subtle" onClick={()=>onNavigate('Analytics')} aria-label={tr("More analytics")}><ArrowUpRight size={16}/></button></div>
+        {categoryData.length?<PieWithPopup data={categoryData} total={expenses} txs={transactions} centerLabel={tr("Total spent")}/>:<EmptyChart text="Add expenses to see your spending mix."/>}
+      </section>
+      <section className="panel budget-panel page-enter"><div className="panel-heading"><div><span className="panel-kicker">{t('p.plan')}</span><h2>{t('p.pulse')}</h2></div><button className="text-link" onClick={()=>onNavigate('Monthly Budget')}>{t('p.manage')} <ArrowUpRight size={14}/></button></div>
+        <div className="budget-total"><strong>{money(expenses)}</strong><span>{Lx('terpakai','spent')} {allocated?`${Lx('dari','of')} ${money(allocated)}`:`· ${Lx('belum ada anggaran','no budget set')}`}</span></div>
+        <div className="progress-track large"><span style={{width:`${Math.min(utilization,100)}%`}}/></div>
+        <div className="budget-caption"><span>{allocated?`${utilization.toFixed(0)}% of total budget used`:tr("Set category limits to track your budget")}</span><strong>{allocated?money(Math.max(0,allocated-expenses)):'—'}</strong></div>
+        <div className="budget-mini-list">{budgets.slice(0,3).map((b: Budget)=>{const spent=transactions.filter((t:Transaction)=>t.type==='expense'&&t.category===b.category).reduce((a:number,t:Transaction)=>a+t.amount,0);const pct=b.limit?spent/b.limit*100:0;return <div className="budget-mini" key={b.category}><div><span>{catLabel(b.category)}</span><strong>{money(spent)} <em>/ {money(b.limit)}</em></strong></div><div className="progress-track"><span className={pct>=100?'over':pct>=70?'warn':''} style={{width:`${Math.min(pct,100)}%`}}/></div></div>})}{!budgets.length&&<p className="muted-note">{tr("Your budget starts with one simple limit. Add one in Monthly Budget.")}</p>}</div>
+      </section>
+      <section className="panel insight-panel page-enter"><div className="insight-head"><div className="insight-symbol"><Sparkles size={17}/></div><span className="panel-kicker">{t('p.clarity')}</span></div><h2>{t('p.persp')}</h2>
+        {transactions.length? <div className="insight-copy">{highestCategory?<p>{tr("Your biggest expense this month is")} <strong>{catLabel(highestCategory.name)}</strong>, <strong>{money(highestCategory.value)}</strong>.</p>:<p>{tr("No expense category has been recorded yet. Add an expense to begin.")}</p>}{expenseChange!==null&&<p>{tr("Spending is")} <strong>{Math.abs(expenseChange).toFixed(1)}% {expenseChange>=0?tr("higher"):tr("lower")}</strong> {tr("than last month.")}</p>}<p>{tr("Your current cash-flow savings rate is")} <strong>{savingsRate.toFixed(1)}%</strong>.</p></div>:<p className="muted-note">{tr("Insights appear when you have enough real transaction history. Start by recording income and expenses.")}</p>}
+        <div className="insight-actions"><button className="primary-button small" onClick={onChat}><Sparkles size={14}/> {t('rem.btn')}</button><button className="text-link" onClick={()=>onNavigate('Analytics')}>{t('p.explore')} <ArrowUpRight size={14}/></button></div>
+      </section>
+    <RecapCard recap={recap} active={chlActive} onNavigate={onNavigate}/>
+    
+    </div>
+</details>
   </div>
 }
 function RecapCard({recap,active,onNavigate}:{recap:Recap,active:{c:Challenge,r:ReturnType<typeof evaluateChallenge>}[],onNavigate:(p:Page)=>void}) {
