@@ -1,7 +1,7 @@
 export type Lang = 'id' | 'en'
 const D: Record<Lang, Record<string, string>> = {
   id: {
-    'nav.Dashboard':'Dasbor','nav.Wrapped':'Monetra Wrapped','nav.Smart Tools':'Asisten Pintar','nav.Challenges':'Tantangan Hemat','nav.Smart Scanner':'Pemindai Pintar','nav.Transactions':'Transaksi','nav.Monthly Budget':'Anggaran Bulanan','nav.Analytics':'Analitik','nav.Financial Calendar':'Kalender Keuangan','nav.Savings Goals':'Target Tabungan','nav.Debts':'Utang','nav.Monthly Reports':'Laporan Bulanan','nav.Profile':'Profil Hewan','nav.Settings':'Pengaturan',
+    'nav.Dashboard':'Dasbor','nav.Smart Tools':'Asisten Pintar','nav.Challenges':'Tantangan Hemat','nav.Smart Scanner':'Pemindai Pintar','nav.Transactions':'Transaksi','nav.Monthly Budget':'Anggaran Bulanan','nav.Analytics':'Analitik','nav.Financial Calendar':'Kalender Keuangan','nav.Savings Goals':'Target Tabungan','nav.Debts':'Utang','nav.Monthly Reports':'Laporan Bulanan','nav.Profile':'Profil Hewan','nav.Settings':'Pengaturan',
     'workspace':'RUANG KERJA','grp.overview':'RINGKASAN','grp.finance':'KEUANGAN','grp.analysis':'ANALISIS','grp.account':'AKUN','nav.more':'Lainnya','crumb':'Ruang kerja','caught':'Semua sudah terbaca',
     'help.title':'Tanya Natasya','help.body':'Catat pengeluaran atau tanya keuanganmu lewat chat.','help.btn':'Buka chat',
     'd.eyebrow':'GAMBARAN KEUANGANMU','d.title':'Kebiasaan uang yang baik dimulai di sini.','d.desc':'Gambaran jelas arus kas, pengeluaran, dan apa yang sedang kamu bangun.','add':'Tambah transaksi',
@@ -17,7 +17,7 @@ const D: Record<Lang, Record<string, string>> = {
     'rem.title':'Reminder','rem.when':'Natasya · baru saja','rem.hi':'Sapa Natasya 👋','rem.warn':'Hari ini kamu sudah memakai {pct}% dari anggaran. Sisa {left}, yuk tahan dulu jajannya.','rem.over':'Pengeluaranmu sudah melewati anggaran ({pct}%). Yuk cek lagi pengeluaranmu.','rem.btn':'Tanya Natasya'
   },
   en: {
-    'nav.Dashboard':'Dashboard','nav.Wrapped':'Monetra Wrapped','nav.Smart Tools':'Smart Assistant','nav.Challenges':'Saving Challenges','nav.Smart Scanner':'Smart Scanner','nav.Transactions':'Transactions','nav.Monthly Budget':'Monthly Budget','nav.Analytics':'Analytics','nav.Financial Calendar':'Financial Calendar','nav.Savings Goals':'Savings Goals','nav.Debts':'Debts','nav.Monthly Reports':'Monthly Reports','nav.Profile':'Animal Profile','nav.Settings':'Settings',
+    'nav.Dashboard':'Dashboard','nav.Smart Tools':'Smart Assistant','nav.Challenges':'Saving Challenges','nav.Smart Scanner':'Smart Scanner','nav.Transactions':'Transactions','nav.Monthly Budget':'Monthly Budget','nav.Analytics':'Analytics','nav.Financial Calendar':'Financial Calendar','nav.Savings Goals':'Savings Goals','nav.Debts':'Debts','nav.Monthly Reports':'Monthly Reports','nav.Profile':'Animal Profile','nav.Settings':'Settings',
     'workspace':'WORKSPACE','grp.overview':'OVERVIEW','grp.finance':'FINANCE','grp.analysis':'ANALYSIS','grp.account':'ACCOUNT','nav.more':'More','crumb':'Workspace','caught':'You are all caught up',
     'help.title':'Ask Natasya','help.body':'Log expenses or ask about your money in chat.','help.btn':'Open chat',
     'd.eyebrow':'YOUR FINANCIAL OVERVIEW','d.title':'Good money habits start here.','d.desc':"A clear view of your cash flow, spending, and what you're building toward.",'add':'Add transaction',
@@ -34,6 +34,11 @@ const D: Record<Lang, Record<string, string>> = {
   }
 }
 const ID_PHRASES: Record<string, string> = {
+    'Add expenses to see your spending mix.':'Catat pengeluaran untuk melihat komposisinya.',
+    'No expense distribution available yet.':'Belum ada sebaran pengeluaran.',
+    'No expense records for this month.':'Belum ada pengeluaran bulan ini.',
+    'Record expenses across months to reveal a spending trend.':'Catat pengeluaran beberapa bulan untuk melihat tren.',
+    'Your category ranking will appear when you add expenses.':'Peringkat kategori muncul setelah kamu mencatat pengeluaran.',
   "Processed on this device": "Diproses di perangkat ini",
   "SMART FINANCE TOOL": "ALAT KEUANGAN PINTAR",
   "Smart Auto Scan": "Pindai Otomatis Pintar",
