@@ -51,3 +51,33 @@
   .xt-split{grid-template-columns:1fr}
   .xt-pop{right:-40px}
 }
+
+/* Tombol mikrofon di chat Natasya */
+.nat-form .nat-mic{background:transparent;color:var(--green);border:1px solid #34d3994d}
+.nat-form .nat-mic:not(:disabled):hover{background:#34d3991f;transform:none}
+
+/* Dashboard sederhana: satu angka utama, daftar singkat, detail dilipat */
+.simple-hero{border-radius:18px;padding:26px;background:linear-gradient(150deg,#16382a,#12261d);border:1px solid #34d39940;display:flex;flex-direction:column;gap:12px}
+.simple-hero-value{font-size:clamp(34px,6vw,52px);letter-spacing:-1.5px;line-height:1.05;color:#e8f0eb}
+.simple-hero-value.negative{color:#fb7185}
+.simple-hero .progress-track{margin:2px 0}
+.simple-hero-cap{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:#aebbb3}
+.simple-hero-cap strong{color:#34d399}
+.simple-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.simple-stats>div{border-radius:14px;padding:14px 16px;background:#0b110e;border:1px solid #ffffff12;display:flex;flex-direction:column;gap:4px;min-width:0}
+.simple-stats small{font-size:12px;color:#78877e}
+.simple-stats strong{font-size:clamp(14px,2.4vw,18px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.simple-stats .up{color:#34d399}.simple-stats .down{color:#fbbf24}
+.simple-natasya{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:14px;border:1px dashed #34d39966;background:transparent;color:#34d399;font-weight:600;cursor:pointer}
+.simple-natasya:hover{background:#34d3991a}
+.dash-more{border-top:1px solid #ffffff12;padding-top:6px}
+.dash-more>summary{cursor:pointer;list-style:none;padding:12px 2px;color:#78877e;font-size:14px}
+.dash-more>summary::-webkit-details-marker{display:none}
+.dash-more>summary::after{content:' ▾'}.dash-more[open]>summary::after{content:' ▴'}
+.dash-more>*:not(summary){margin-top:16px}
+html[data-theme="light"] .simple-hero{background:linear-gradient(150deg,#e6f0ec,#edf3f0);border-color:#10b98140}
+html[data-theme="light"] .simple-hero-value{color:#161815}
+html[data-theme="light"] .simple-hero-cap{color:#4b5a52}
+html[data-theme="light"] .simple-stats>div{background:#f0f1f0;border-color:#08170f12}
+html[data-theme="light"] .simple-stats .up{color:#059669}html[data-theme="light"] .simple-stats .down{color:#b45309}
+@media(max-width:480px){.simple-hero{padding:20px}.simple-stats{gap:8px}.simple-stats>div{padding:12px}}
