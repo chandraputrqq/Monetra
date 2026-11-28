@@ -181,7 +181,7 @@ export function ProfilePage({ analysis: a, prefs, onChange, txCount }: PageProps
   return <div className="page-stack pf-page">
     <div className="page-heading page-enter"><div><div className="eyebrow"><span />{L('KEPRIBADIAN KEUANGAN', 'MONEY PERSONALITY')}</div><h1>{L('Profil Hewan Keuangan', 'Money Animal Profile')}</h1><p>{L('Hewan pendampingmu dibaca dari kebiasaan uangmu yang nyata, lalu bisa kamu kustomisasi.', 'Your companion animal is read from your real money habits, then fully customisable.')}</p></div></div>
 
-    <section className="panel pf-hero page-enter" style={{ ['--pf-accent' as string]: prefs.accent, backgroundColor: '#171a17', backgroundImage: `radial-gradient(ellipse at 90% 0%, ${prefs.accent}38, transparent 55%), linear-gradient(130deg, #1d251e, #171a17)` }}>
+    <section className="panel pf-hero page-enter" style={{ ['--pf-accent' as string]: prefs.accent }}>
       <AnimalAvatar animal={animal} accent={prefs.accent} frame={prefs.frame} size={104} />
       <div className="pf-hero-main">
         <span className="panel-kicker">{pick(animal.name).toUpperCase()} · {prefs.mode === 'auto' ? L('OTOMATIS', 'AUTO') : L('PILIHANMU', 'YOUR PICK')}</span>
