@@ -87,13 +87,11 @@ html[data-theme="light"] .simple-stats .up{color:#059669}html[data-theme="light"
 .dash-more .dashboard-grid:not(:has(.insight-panel))>.spending-panel{grid-column:1/-1}
 
 /* Kartu angka: kolom menyesuaikan jumlah kartu, tidak ada kolom kosong */
-.page-content .report-metrics,.page-content .metric-grid{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.page-content .report-metrics{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
 
 /* ---- Sidebar (layar lebar) ----
    Default: lebar dengan ikon + nama (mudah dipahami). Tombol "Ciutkan menu" mengubahnya jadi ikon saja (.is-rail). */
-.rail-toggle{display:none}
 @media(min-width:651px){
-  .rail-toggle{display:flex;margin-bottom:6px}
   .app-shell:not(.is-rail) .sidebar{width:224px;padding:18px 12px 12px;overflow:hidden}
   .app-shell:not(.is-rail) .main-area{margin-left:224px}
   .app-shell:not(.is-rail) .sidebar .brand{justify-content:flex-start;padding:0 8px}
@@ -125,7 +123,64 @@ html[data-theme="light"] .simple-stats .up{color:#059669}html[data-theme="light"
   .app-shell:not(.is-rail) .sidebar nav,.app-shell.is-rail .sidebar nav{gap:2px;margin-top:8px}
   .app-shell:not(.is-rail) .sidebar .nav-group,.app-shell.is-rail .sidebar .nav-group{gap:0}
   .app-shell:not(.is-rail) .sidebar .nav-group+.nav-group,.app-shell.is-rail .sidebar .nav-group+.nav-group{padding-top:3px}
-  .rail-toggle{margin-bottom:2px}
   .app-shell:not(.is-rail) .sidebar-bottom .profile{padding-top:6px}
   .app-shell.is-rail .sidebar-bottom .profile{padding-top:6px}
 }
+
+/* ---- Logo sebagai tombol ciutkan / lebarkan menu ---- */
+.brand-toggle{background:none;border:0;color:inherit;font:inherit;font-size:21px;font-weight:700;letter-spacing:-1px;cursor:pointer;width:100%;display:flex;align-items:center;gap:10px;text-align:left;border-radius:12px;transition:background .2s ease}
+.brand-toggle:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.brand-hint{margin-left:auto;opacity:.35;flex:none;transition:opacity .2s ease,transform .2s ease}
+.brand-toggle:hover .brand-hint{opacity:.9}
+@media(min-width:651px){.brand-toggle:hover{background:#ffffff0a}}
+@media(max-width:650px){.brand-hint{display:none}.brand-toggle{cursor:default}}
+.app-shell.is-rail .sidebar .brand-hint{display:none}
+.app-shell.is-rail .sidebar .brand-toggle{justify-content:center;padding:6px 0}
+.app-shell.is-rail .sidebar .brand-toggle:hover .brand-mark{box-shadow:0 0 0 4px #34d39930}
+html[data-theme="light"] .brand-toggle:hover{background:#08170f0a}
+
+/* ---- Kartu metrik dashboard: semua sama ukuran, rapi, tanpa kolom kosong ---- */
+.page-content .metric-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;container-type:inline-size}
+.page-content .metric-grid>.metric-card:nth-child(n){grid-column:auto;grid-row:auto;order:0;padding:16px 18px;display:flex;flex-direction:column;justify-content:flex-start;gap:0;background:linear-gradient(160deg,color-mix(in srgb,var(--tone,#34d399) 11%,var(--panel)),var(--panel) 62%);border-color:color-mix(in srgb,var(--tone,#34d399) 22%,transparent)}
+.page-content .metric-grid>.metric-card:nth-child(n) .metric-value{font-size:clamp(15px,1.95cqw,22px);letter-spacing:-.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:14px}
+.metric-card.tone-amber{--tone:#e0b25f}
+.metric-card.tone-green,.metric-card.tone-mint,.metric-card.tone-blue,.metric-card.tone-neutral{--tone:#34d399}
+.page-content .metric-grid>.metric-card:hover{border-color:color-mix(in srgb,var(--tone,#34d399) 50%,transparent)}
+@media(max-width:1180px){
+  .page-content .metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .page-content .metric-grid>.metric-card:last-child:nth-child(3n+2){grid-column:span 2}
+}
+@media(max-width:720px){
+  .page-content .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .page-content .metric-grid>.metric-card:last-child:nth-child(odd){grid-column:1/-1}
+}
+html[data-theme="light"] .page-content .metric-grid>.metric-card:nth-child(n){background:linear-gradient(160deg,color-mix(in srgb,var(--tone,#34d399) 12%,#f4f5f4),#f4f5f4 62%)}
+
+/* ---- Quick overview: popup konsisten dan lebih menarik ---- */
+.metric-detail-modal{--tone:#34d399;position:relative;overflow:hidden;width:min(420px,calc(100vw - 32px));padding:22px 24px 24px;border-radius:22px;border:1px solid color-mix(in srgb,var(--tone) 30%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--tone) 9%,#0d130f),#0b110e 55%);box-shadow:0 24px 80px #000a,0 0 0 1px #ffffff06 inset;animation:md-in .28s cubic-bezier(.22,.8,.3,1) both}
+.metric-detail-modal.md-amber{--tone:#e0b25f}
+.md-glow{position:absolute;inset:-40% -20% auto;height:70%;background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--tone) 28%,transparent),transparent 65%);pointer-events:none}
+.md-top{position:relative;display:flex;align-items:center;justify-content:space-between}
+.md-kicker{font-size:11px;letter-spacing:.14em;font-weight:700;color:color-mix(in srgb,var(--tone) 75%,#fff)}
+.md-body{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:18px 0 22px}
+.metric-detail-modal .metric-detail-icon{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;background:color-mix(in srgb,var(--tone) 18%,transparent);color:var(--tone);border:1px solid color-mix(in srgb,var(--tone) 35%,transparent);margin-bottom:8px}
+.metric-detail-modal .md-label{margin:0;font-size:15px;font-weight:500;color:var(--soft)}
+.metric-detail-modal .metric-detail-value{font-size:clamp(28px,8vw,38px);font-weight:700;letter-spacing:-1.2px;line-height:1.1;color:var(--text);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.metric-detail-modal .md-sub{margin:4px 0 0;font-size:13px;line-height:1.5;color:var(--muted)}
+.md-trend{margin-top:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--tone) 16%,transparent);color:var(--tone)}
+.metric-detail-modal .metric-detail-close{position:relative;width:100%;justify-content:center;border-radius:14px;padding:13px 18px;font-weight:600}
+@keyframes md-in{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+html[data-theme="light"] .metric-detail-modal{background:linear-gradient(180deg,color-mix(in srgb,var(--tone) 10%,#f7f8f7),#f4f5f4 55%);box-shadow:0 24px 70px #08170f30}
+html[data-theme="light"] .md-kicker{color:color-mix(in srgb,var(--tone) 85%,#000)}
+
+/* ---- Banner profil hewan mengikuti tema siang/malam ---- */
+.panel.pf-hero{background-color:#171a17;background-image:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--pf-accent,#34d399) 22%,transparent),transparent 55%),linear-gradient(130deg,#1d251e,#171a17)}
+html[data-theme="light"] .panel.pf-hero{background-color:#f1f2f1;background-image:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--pf-accent,#34d399) 16%,transparent),transparent 55%),linear-gradient(130deg,#ecefed,#f1f2f1)}
+
+/* ---- Grafik: sorotan saat disentuh tidak lagi putih ---- */
+path.recharts-rectangle.recharts-tooltip-cursor,rect.recharts-tooltip-cursor{fill:rgba(52,211,153,.09)!important;stroke:none!important}
+path.recharts-curve.recharts-tooltip-cursor,line.recharts-tooltip-cursor{stroke:rgba(52,211,153,.45)!important}
+.recharts-sector{outline:none}
+.recharts-wrapper,.recharts-surface{outline:none}
+html[data-theme="light"] path.recharts-rectangle.recharts-tooltip-cursor,html[data-theme="light"] rect.recharts-tooltip-cursor{fill:rgba(5,150,105,.08)!important}
+html[data-theme="light"] path.recharts-curve.recharts-tooltip-cursor{stroke:rgba(5,150,105,.45)!important}
