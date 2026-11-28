@@ -389,10 +389,9 @@ export default function App() {
 
   return <div className={`app-shell ${hideNums?'privacy-on':''} ${navRail?'is-rail':''}`}>
     <aside className={`sidebar ${mobileNav?'sidebar-open':''}`}>
-      <div className="brand"><div className="brand-mark"><span /></div><span>monetra</span><small>{tr("STUDENT FINANCE")}</small></div>
+      <button type="button" className="brand brand-toggle" onClick={()=>{if(window.innerWidth>650)toggleRail()}} title={navRail?Lx('Lebarkan menu','Expand menu'):Lx('Ciutkan menu','Collapse menu')} aria-label={navRail?Lx('Lebarkan menu','Expand menu'):Lx('Ciutkan menu','Collapse menu')} aria-pressed={navRail}><div className="brand-mark"><span /></div><span>monetra</span><small>{tr("STUDENT FINANCE")}</small>{navRail?<ChevronsRight className="brand-hint" size={15}/>:<ChevronsLeft className="brand-hint" size={15}/>}</button>
       <nav aria-label={t('workspace')}>{NAV_GROUPS.map(g=><div className="nav-group" key={g.key}><div className="nav-group-label">{t(g.key)}</div>{g.items.map(label=>{const Icon=NAV.find(n=>n.label===label)!.icon;return <button key={label} className={`nav-item ${page===label?'active':''} ${navTip===label?'tip-on':''}`} onClick={()=>{setPage(label);setMobileNav(false);setNavTip(label)}} title={t('nav.'+label)} data-tip={t('nav.'+label)} aria-current={page===label?'page':undefined}><Icon size={18}/><span>{t('nav.'+label)}</span>{page===label&&<i/>}</button>})}</div>)}</nav>
       <div className="sidebar-bottom">
-        <button className="nav-item rail-toggle" onClick={toggleRail} data-tip={navRail?Lx('Lebarkan menu','Expand menu'):''} aria-label={navRail?Lx('Lebarkan menu','Expand menu'):Lx('Ciutkan menu','Collapse menu')} aria-pressed={navRail}>{navRail?<ChevronsRight size={18}/>:<ChevronsLeft size={18}/>}<span>{Lx('Ciutkan menu','Collapse menu')}</span></button>
         <div className="profile" role="button" tabIndex={0} onClick={()=>{setPage('Profile');setMobileNav(false)}} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){setPage('Profile');setMobileNav(false)}}}><AnimalAvatar animal={myAnimal} accent={profilePrefs.accent} frame={profilePrefs.frame} size={30}/><div><strong>{profilePrefs.name.trim()||tr("My workspace")}</strong><span>{myAnimal.emoji} {getLang()==='id'?myAnimal.name[0]:myAnimal.name[1]}</span></div><MoreHorizontal size={17}/></div>
       </div>
     </aside>
@@ -450,11 +449,16 @@ function Metric({label,value,sub,icon:Icon,tone='neutral',trend,raw,format}:{lab
       <span className="metric-foot"><span>{sub}</span>{trend&&<span className="metric-trend">{trend}</span>}</span>
     </button>
     {open&&<div className="modal-backdrop metric-detail-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}>
-      <section className="modal metric-detail-modal" role="dialog" aria-modal="true" aria-label={`${label} details`}>
-        <div className="modal-head"><div><span className="panel-kicker">{tr("QUICK OVERVIEW")}</span><h2>{label}</h2></div><button type="button" className="icon-button" onClick={()=>setOpen(false)} aria-label={tr("Close details")}><X size={18}/></button></div>
-        <div className={`metric-detail-icon ${tone}`}><Icon size={21}/></div>
-        <strong className="metric-detail-value">{value}</strong>
-        <p>{sub}{trend?` · ${trend}`:''}</p>
+      <section className={`modal metric-detail-modal md-${tone}`} role="dialog" aria-modal="true" aria-label={`${label} details`}>
+        <div className="md-glow" aria-hidden="true"/>
+        <div className="md-top"><span className="md-kicker">{tr("QUICK OVERVIEW")}</span><button type="button" className="icon-button" onClick={()=>setOpen(false)} aria-label={tr("Close details")}><X size={18}/></button></div>
+        <div className="md-body">
+          <div className={`metric-detail-icon ${tone}`}><Icon size={24}/></div>
+          <h2 className="md-label">{label}</h2>
+          <strong className="metric-detail-value">{value}</strong>
+          <p className="md-sub">{sub}</p>
+          {trend&&<span className="md-trend">{trend}</span>}
+        </div>
         <button type="button" className="primary-button metric-detail-close" onClick={()=>setOpen(false)}>{tr("Got it")}</button>
       </section>
     </div>}
