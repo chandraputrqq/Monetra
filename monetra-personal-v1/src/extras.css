@@ -89,62 +89,63 @@ html[data-theme="light"] .simple-stats .up{color:#059669}html[data-theme="light"
 /* Kartu angka: kolom menyesuaikan jumlah kartu, tidak ada kolom kosong */
 .page-content .report-metrics{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
 
-/* ---- Sidebar (layar lebar) ----
-   Default: lebar dengan ikon + nama (mudah dipahami). Tombol "Ciutkan menu" mengubahnya jadi ikon saja (.is-rail). */
+/* ---- Sidebar (layar lebar): ikon + nama, diciutkan lewat logo ----
+   Transisi halus: yang berubah hanya lebar dan opasitas label. Ikon dan logo tidak berpindah tempat. */
+:root{--sb-ease:cubic-bezier(.22,.8,.3,1);--sb-dur:.34s}
+.brand-toggle{background:none;border:0;color:inherit;font:inherit;font-size:21px;font-weight:700;letter-spacing:-1px;cursor:pointer;width:100%;display:flex;align-items:center;gap:10px;text-align:left;border-radius:12px;padding:6px 0 6px 9px;transition:background .2s ease;-webkit-tap-highlight-color:transparent}
+.brand-toggle:focus{outline:none}
+.brand-toggle:focus-visible{outline:2px solid color-mix(in srgb,var(--green) 70%,transparent);outline-offset:-2px}
+.brand-hint{margin-left:auto;margin-right:8px;width:15px;flex:none;opacity:.35;transition:opacity .2s ease,width var(--sb-dur) var(--sb-ease),margin var(--sb-dur) var(--sb-ease)}
+.brand-toggle:hover .brand-hint{opacity:.9}
+html[data-theme="light"] .brand-toggle:hover{background:#08170f0a}
+@media(max-width:650px){.brand-hint{display:none}.brand-toggle{cursor:default}}
 @media(min-width:651px){
-  .app-shell:not(.is-rail) .sidebar{width:224px;padding:18px 12px 12px;overflow:hidden}
-  .app-shell:not(.is-rail) .main-area{margin-left:224px}
-  .app-shell:not(.is-rail) .sidebar .brand{justify-content:flex-start;padding:0 8px}
-  .app-shell:not(.is-rail) .sidebar .brand>span:not(.brand-mark){display:inline}
-  .app-shell:not(.is-rail) .sidebar .nav-group-label{display:none}
-  .app-shell:not(.is-rail) .sidebar nav{overflow-x:hidden;overflow-y:auto;gap:4px;margin-top:16px}
-  .app-shell:not(.is-rail) .sidebar .nav-group{gap:2px}
-  .app-shell:not(.is-rail) .sidebar .nav-group+.nav-group{border-top:1px solid var(--line);padding-top:6px}
-  .app-shell:not(.is-rail) .sidebar .nav-item{justify-content:flex-start;padding:0 12px;width:100%;height:38px}
-  .app-shell:not(.is-rail) .sidebar .nav-item span{display:inline}
-  .app-shell:not(.is-rail) .sidebar-bottom .profile{justify-content:flex-start;padding:10px 8px 2px}
-
-  .app-shell.is-rail .sidebar{width:72px;padding:20px 10px 12px;overflow:visible}
+  .brand-toggle:hover{background:#ffffff0a}
+  .app-shell .sidebar{width:224px;padding:18px 10px 12px;overflow:visible;transition:width var(--sb-dur) var(--sb-ease);will-change:width}
+  .app-shell .main-area{margin-left:224px;transition:margin-left var(--sb-dur) var(--sb-ease)}
+  .app-shell.is-rail .sidebar{width:72px}
   .app-shell.is-rail .main-area{margin-left:72px}
-  .app-shell.is-rail .sidebar .brand>span:not(.brand-mark),.app-shell.is-rail .sidebar .brand small,.app-shell.is-rail .sidebar .nav-group-label,.app-shell.is-rail .sidebar .nav-item span,.app-shell.is-rail .sidebar-bottom .profile>div:nth-child(2),.app-shell.is-rail .sidebar-bottom .profile>svg{display:none}
-  .app-shell.is-rail .sidebar .brand{justify-content:center;padding:0}
-  .app-shell.is-rail .sidebar nav{overflow:visible;gap:8px;margin-top:18px;padding-right:0}
-  .app-shell.is-rail .sidebar .nav-group+.nav-group{border-top:1px solid var(--line);padding-top:8px}
-  .app-shell.is-rail .sidebar .nav-item{justify-content:center;padding:0;width:100%;height:42px}
-  .app-shell.is-rail .sidebar .nav-item.active i{left:-10px}
+
+  .app-shell .sidebar .brand{padding:6px 0 6px 13px;justify-content:flex-start}
+  .app-shell .sidebar .nav-group-label{display:none}
+  .app-shell .sidebar nav{overflow-x:hidden;overflow-y:auto;gap:4px;margin-top:16px}
+  .app-shell.is-rail .sidebar nav{overflow:visible}
+  .app-shell .sidebar .nav-group{gap:2px}
+  .app-shell .sidebar .nav-group+.nav-group{border-top:1px solid var(--line);padding-top:6px}
+  .app-shell .sidebar .nav-item{justify-content:flex-start;padding:0 12px 0 17px;width:100%;height:38px;overflow:visible}
+  .app-shell .sidebar .nav-item.active i{left:-10px}
+  .app-shell .sidebar-bottom .profile{justify-content:flex-start;padding:10px 0 2px 11px}
+
+  /* Label: memudar dan menyempit (bukan hilang tiba-tiba) */
+  .app-shell .sidebar .nav-item span,.app-shell .sidebar .brand>span:not(.brand-mark),.app-shell .sidebar-bottom .profile>div:nth-child(2){white-space:nowrap;overflow:hidden;max-width:170px;opacity:1;transition:opacity .22s ease .1s,max-width var(--sb-dur) var(--sb-ease)}
+  .app-shell .sidebar-bottom .profile>svg{flex:none;width:17px;opacity:1;transition:opacity .22s ease .1s,width var(--sb-dur) var(--sb-ease),margin var(--sb-dur) var(--sb-ease)}
+  .app-shell.is-rail .sidebar .nav-item span,.app-shell.is-rail .sidebar .brand>span:not(.brand-mark),.app-shell.is-rail .sidebar-bottom .profile>div:nth-child(2){max-width:0;opacity:0;transition:opacity .12s ease,max-width var(--sb-dur) var(--sb-ease)}
+  .app-shell.is-rail .sidebar-bottom .profile>svg{width:0;margin:0;opacity:0;transition:opacity .12s ease,width var(--sb-dur) var(--sb-ease),margin var(--sb-dur) var(--sb-ease)}
+  .app-shell.is-rail .sidebar .brand small,.app-shell.is-rail .brand-hint{opacity:0;width:0;margin:0}
+  .app-shell.is-rail .brand-toggle:hover .brand-mark{box-shadow:0 0 0 4px #34d39930}
+
+  /* Tooltip nama menu hanya di mode ikon */
   .app-shell.is-rail .sidebar .nav-item[data-tip]::after{display:block}
   .app-shell.is-rail .sidebar .nav-item:hover::after,.app-shell.is-rail .sidebar .nav-item:focus-visible::after,.app-shell.is-rail .sidebar .nav-item.tip-on::after{opacity:1;transform:translate(0,-50%)}
-  .app-shell.is-rail .sidebar-bottom .profile{justify-content:center;padding:12px 0 3px}
 }
 /* Layar pendek (termasuk laptop dengan skala tampilan 125 sampai 150 persen): rapatkan supaya semua menu muat tanpa scroll */
 @media(min-width:651px) and (max-height:700px){
-  .app-shell:not(.is-rail) .sidebar .nav-item,.app-shell.is-rail .sidebar .nav-item{height:31px}
-  .app-shell:not(.is-rail) .sidebar{padding-top:12px;padding-bottom:8px}
-  .app-shell:not(.is-rail) .sidebar nav,.app-shell.is-rail .sidebar nav{gap:2px;margin-top:8px}
-  .app-shell:not(.is-rail) .sidebar .nav-group,.app-shell.is-rail .sidebar .nav-group{gap:0}
-  .app-shell:not(.is-rail) .sidebar .nav-group+.nav-group,.app-shell.is-rail .sidebar .nav-group+.nav-group{padding-top:3px}
-  .app-shell:not(.is-rail) .sidebar-bottom .profile{padding-top:6px}
-  .app-shell.is-rail .sidebar-bottom .profile{padding-top:6px}
+  .app-shell .sidebar .nav-item{height:31px}
+  .app-shell .sidebar{padding-top:12px;padding-bottom:8px}
+  .app-shell .sidebar nav{gap:2px;margin-top:8px}
+  .app-shell .sidebar .nav-group{gap:0}
+  .app-shell .sidebar .nav-group+.nav-group{padding-top:3px}
+  .app-shell .sidebar-bottom .profile{padding-top:6px}
 }
-
-/* ---- Logo sebagai tombol ciutkan / lebarkan menu ---- */
-.brand-toggle{background:none;border:0;color:inherit;font:inherit;font-size:21px;font-weight:700;letter-spacing:-1px;cursor:pointer;width:100%;display:flex;align-items:center;gap:10px;text-align:left;border-radius:12px;transition:background .2s ease}
-.brand-toggle:focus-visible{outline:2px solid var(--green);outline-offset:2px}
-.brand-hint{margin-left:auto;opacity:.35;flex:none;transition:opacity .2s ease,transform .2s ease}
-.brand-toggle:hover .brand-hint{opacity:.9}
-@media(min-width:651px){.brand-toggle:hover{background:#ffffff0a}}
-@media(max-width:650px){.brand-hint{display:none}.brand-toggle{cursor:default}}
-.app-shell.is-rail .sidebar .brand-hint{display:none}
-.app-shell.is-rail .sidebar .brand-toggle{justify-content:center;padding:6px 0}
-.app-shell.is-rail .sidebar .brand-toggle:hover .brand-mark{box-shadow:0 0 0 4px #34d39930}
-html[data-theme="light"] .brand-toggle:hover{background:#08170f0a}
+@media(prefers-reduced-motion:reduce){.app-shell .sidebar,.app-shell .main-area,.app-shell .sidebar *{transition:none!important}}
 
 /* ---- Kartu metrik dashboard: semua sama ukuran, rapi, tanpa kolom kosong ---- */
 .page-content .metric-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;container-type:inline-size}
 .page-content .metric-grid>.metric-card:nth-child(n){grid-column:auto;grid-row:auto;order:0;padding:16px 18px;display:flex;flex-direction:column;justify-content:flex-start;gap:0;background:linear-gradient(160deg,color-mix(in srgb,var(--tone,#34d399) 11%,var(--panel)),var(--panel) 62%);border-color:color-mix(in srgb,var(--tone,#34d399) 22%,transparent)}
 .page-content .metric-grid>.metric-card:nth-child(n) .metric-value{font-size:clamp(15px,1.95cqw,22px);letter-spacing:-.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:14px}
-.metric-card.tone-amber{--tone:#e0b25f}
-.metric-card.tone-green,.metric-card.tone-mint,.metric-card.tone-blue,.metric-card.tone-neutral{--tone:#34d399}
+.metric-card,.metric-card[class*=tone-]{--tone:#34d399}
+.page-content .metric-grid .metric-icon.amber,.metric-detail-icon.amber{background:color-mix(in srgb,#34d399 18%,transparent);color:#34d399}
+html[data-theme="light"] .page-content .metric-grid .metric-icon.amber{color:#059669}
 .page-content .metric-grid>.metric-card:hover{border-color:color-mix(in srgb,var(--tone,#34d399) 50%,transparent)}
 @media(max-width:1180px){
   .page-content .metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -158,7 +159,6 @@ html[data-theme="light"] .page-content .metric-grid>.metric-card:nth-child(n){ba
 
 /* ---- Quick overview: popup konsisten dan lebih menarik ---- */
 .metric-detail-modal{--tone:#34d399;position:relative;overflow:hidden;width:min(420px,calc(100vw - 32px));padding:22px 24px 24px;border-radius:22px;border:1px solid color-mix(in srgb,var(--tone) 30%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--tone) 9%,#0d130f),#0b110e 55%);box-shadow:0 24px 80px #000a,0 0 0 1px #ffffff06 inset;animation:md-in .28s cubic-bezier(.22,.8,.3,1) both}
-.metric-detail-modal.md-amber{--tone:#e0b25f}
 .md-glow{position:absolute;inset:-40% -20% auto;height:70%;background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--tone) 28%,transparent),transparent 65%);pointer-events:none}
 .md-top{position:relative;display:flex;align-items:center;justify-content:space-between}
 .md-kicker{font-size:11px;letter-spacing:.14em;font-weight:700;color:color-mix(in srgb,var(--tone) 75%,#fff)}
